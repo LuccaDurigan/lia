@@ -226,6 +226,9 @@ dialog::backdrop{background:#1d1a1788}
 .visits time{flex:none;width:72px;color:var(--ink-2)}
 .tag{flex:none;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-tint);border-radius:6px;padding:1px 6px;align-self:flex-start}
 /* idas marcadas */
+.okmsg{margin-top:12px;padding:10px 12px;border-radius:12px;background:#E3EFE6;color:var(--win);font-weight:600;font-size:14.5px}
+.toast{position:fixed;z-index:2600;left:50%;bottom:calc(100px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;font-weight:600;font-size:15px;animation:rise .25s var(--ease);transition:opacity .3s}
+.toast.out{opacity:0}
 .plan-when{color:var(--accent);font-weight:600}
 .iconbtn.on{color:var(--accent)}
 .row>svg.i{color:var(--accent);width:22px;height:22px}
@@ -792,11 +795,12 @@ function inviteText(p, pl) {
     [f.street, f.bairro].filter(Boolean).join(' · '), pl.note,
     f.lat ? `Mapa: https://www.google.com/maps/search/?api=1&query=${f.lat},${f.lon}` : '', 'Marcado pela Lia'].filter(Boolean).join('\n');
 }
-function planSheet(p) {
+function planSheet(p, justCreated) {
   if (!p) return;
   const ex = planFor(p.id), def = new Date(); def.setDate(def.getDate() + ((6 - def.getDay() + 7) % 7 || 7)); def.setHours(20, 0, 0, 0);   // padrão: próximo sábado, 20h
   const pl = ex ? { ...ex, with: [...ex.with] } : { id: 'pl' + Date.now().toString(36), placeId: p.id, date: def.getTime(), with: [], note: '' };
   sheet(`<h2>${ex ? 'Ida marcada' : 'Marcar ida'}</h2><p class="sub">${esc(full(p).name)}</p>
+    ${justCreated ? '<p class="okmsg">Ida marcada! Agora é só convidar quem vai.</p>' : ''}
     <label class="lbl" for="pdate">Quando</label><input class="input" type="datetime-local" id="pdate" value="${localDT(pl.date)}" min="${localDT(Date.now())}">
     <span class="lbl">Com quem?</span><div id="who">${whoPicker(pl.with)}</div>
     <label class="lbl" for="pnote">Anotação</label><textarea id="pnote" rows="2" placeholder="Ex.: reservar mesa, pedir a polenta">${esc(pl.note)}</textarea>
@@ -809,7 +813,8 @@ function planSheet(p) {
     if (a === 'save') {
       read(); db.plans = [...db.plans.filter(x => x.placeId !== p.id), { ...pl, created: ex?.created || Date.now() }];
       if (!db.want.includes(p.id)) db.want.push(p.id);
-      persist(); planSheet(p);   // reabre já com os botões de convite
+      persist();
+      if (ex) { dlg.close(); toast('Ida salva'); } else planSheet(p, true);   // ida nova: reabre já com os botões de convite
     } else if (a === 'wa') { e.preventDefault(); read(); window.open('https://wa.me/?text=' + encodeURIComponent(inviteText(p, pl)), '_blank'); }
     else if (a === 'shareplan') { read(); const text = inviteText(p, pl); navigator.share ? navigator.share({ text }).catch(() => {}) : navigator.clipboard?.writeText(text); }
     else if (a === 'unplan') { b.textContent = 'Confirmar: desmarcar'; b.dataset.a = 'unplan2'; }
@@ -861,6 +866,11 @@ const placeSub = p => { const d = nearOn && km(p); const st = hoursStatus(parseH
 const locate = () => new Promise((ok, fail) => navigator.geolocation
   ? navigator.geolocation.getCurrentPosition(pos => { me = [pos.coords.longitude, pos.coords.latitude]; ok(me); }, fail, { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 })
   : fail(new Error('sem localização')));
+// aviso curto acima da barra, some sozinho
+function toast(t) {
+  const el = document.createElement('div'); el.className = 'toast'; el.setAttribute('role', 'status'); el.textContent = t;
+  document.body.append(el); setTimeout(() => el.classList.add('out'), 1800); setTimeout(() => el.remove(), 2200);
+}
 const alertMsg = t => sheet(`<p style="padding-right:30px">${esc(t)}</p>`, () => {});
 
 // --- parecidos e informar erro (final da ficha) ---
@@ -1289,7 +1299,7 @@ $('#me').addEventListener('click', profileSheet);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // A página sabe a própria versão (BUILD é carimbado pelo publicar.sh) e compara com a publicada (version.json).
 // Se estiver atrás, recarrega: ao abrir, ao voltar para a tela e a cada 30 min, desde que nenhuma ficha esteja aberta.
-const BUILD = '20261122234408';
+const BUILD = '20261122234840';
 const publishedVersion = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j?.v ?? null).catch(() => null);
 async function checkUpdate() {
   const v = await publishedVersion();
