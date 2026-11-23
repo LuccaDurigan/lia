@@ -226,6 +226,27 @@ dialog::backdrop{background:#1d1a1788}
 .visits li:first-child{border-top:0}
 .visits time{flex:none;width:72px;color:var(--ink-2)}
 .tag{flex:none;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-tint);border-radius:6px;padding:1px 6px;align-self:flex-start}
+/* amigos */
+.dot{position:relative}
+.dot::after{content:'';position:absolute;top:2px;right:2px;width:10px;height:10px;border-radius:50%;background:var(--heart);box-shadow:0 0 0 2px var(--ground)}
+nav .dest button.dot::after{top:8px;right:calc(50% - 18px);box-shadow:0 0 0 2px var(--ink)}
+.fcount{display:flex;gap:18px}.fcount button{font-size:15px;color:var(--ink-2)}.fcount b{font-size:20px;color:var(--ink);margin-right:2px}
+.simil li.req{display:flex;align-items:center;gap:8px}.simil li.req>button:first-child{flex:1;min-width:0}
+.simil button .pp{margin-right:10px}
+.btn.sm{height:36px;padding:0 14px;font-size:14px;flex:none}
+.privrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:15px}
+.privrow:first-of-type{border-top:0}
+.privrow select{font:inherit;font-size:14px;color:var(--accent);background:transparent;border:0;text-align:right;max-width:55%}
+.pp.big{width:58px;height:58px;font-size:30px}
+.prof .btn.sm{align-self:center}
+.req-box{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.req-box p{flex:1 1 100%;margin:0 0 4px}
+.lock{margin-top:16px;padding:14px;border-radius:12px;background:var(--surface)}
+.fat-list{display:flex;flex-wrap:wrap;gap:8px}
+.fat-list button{display:flex;align-items:center;gap:8px;padding:6px 10px 6px 6px;border-radius:22px;background:var(--ground);font-size:14px}
+.fat-list .pp{width:26px;height:26px;font-size:14px}
+.fitem{display:flex;align-items:center;padding-left:16px}.fitem .row{flex:1;min-width:0;padding-left:10px}
+.newdot{flex:none;width:9px;height:9px;border-radius:50%;background:var(--heart)}
+.loading{display:grid;place-items:center;padding:48px 0}
 /* começo guiado */
 .qs-field{margin:14px 0 6px}
 .qs-list{max-height:52vh;overflow:auto;margin:0 -4px;padding:0 4px}
@@ -439,7 +460,7 @@ dialog::backdrop{background:#1d1a1788}
 <script type="module">
 import { startSession, current, done, answer, undo, finalValue, scores, community, migrateV1 } from './ranking.mjs';
 import { parseHours, hoursStatus, hoursWeek } from './hours.mjs';
-import { configured, currentUser, myProfile, signOut, onPasswordRecovery, searchProfiles, uploadPhoto, photoUrls, deletePhotos, errorText, sendReport, loadUserData, saveUserData, deleteAccount } from './conta.mjs';
+import { configured, currentUser, myProfile, signOut, onPasswordRecovery, searchProfiles, uploadPhoto, photoUrls, deletePhotos, errorText, sendReport, loadUserData, saveUserData, deleteAccount, friendView, friendsFeed, friendsAt, setPrivacy, follow, unfollow, acceptFollow, removeFollower, myFollows, sendMentions, myMentions, markMentionsSeen } from './conta.mjs';
 import { mergeData } from './sync.mjs';
 import { startOnboarding } from './onboarding.mjs';
 
@@ -473,6 +494,7 @@ save('pinhao:v1', db);
 // lugares vêm de places.json (cópia do OpenStreetMap publicada junto com o app; o service worker guarda para uso offline)
 let places = null;
 try { localStorage.removeItem('pinhao:places'); localStorage.removeItem('pinhao:places2'); } catch {}   // caches antigos, de quando o app baixava do Overpass
+let social = { followers: [], following: [], requests: [] }, mentions = [], feed = null, diaryMode = 'me';   // amigos
 let rankQueue = [];   // começo guiado: lugares marcados que ainda faltam ranquear
 let tab = 'tabela', cat = 'RES', query = '', loadError = '', justRanked = null;
 
@@ -635,6 +657,11 @@ const views = {
   mapa() { return `<div id="map"></div><p class="maphint">Aproxime para ver todos os lugares</p><div id="mapcard" hidden></div>
     <div class="mapbtns"><button data-m="me" aria-label="Minha localização">${icon('locate')}</button><button data-m="fit" aria-label="Ver meus lugares">${icon('fit')}</button></div>`; },
   atividade() {
+    const seg = syncUser ? `<div class="wrap" style="padding-bottom:0"><div class="seg">${[['me', 'Você'], ['friends', 'Amigos']].map(([k, t]) => `<button data-dmode="${k}" aria-pressed="${diaryMode === k}">${t}</button>`).join('')}</div></div>` : '';
+    if (syncUser && diaryMode === 'friends') return seg + friendsDiary();
+    return seg + views.myDiary();
+  },
+  myDiary() {
     const sc = allScores(), items = db.ranked.flatMap(r => visits(r).map(v => ({ ...r, date: v.date, visit: v }))).sort((a, b) => b.date - a.date);
     const upcoming = db.plans.filter(pl => pl.date > Date.now() - 6 * 36e5).sort((a, b) => a.date - b.date);
     if (!items.length && !upcoming.length) return `<div class="wrap empty"><h2>Nada por aqui ainda</h2><p>Cada lugar que você ranquear aparece nesta lista, do mais recente ao mais antigo.</p>
@@ -655,6 +682,19 @@ const views = {
 };
 
 let map, mapState = null, mapSel = null, me = null;
+function friendsDiary() {
+  if (feed === null) { friendsFeed().then(f => { feed = f; if (tab === 'atividade') render(); }).catch(() => { feed = []; }); return '<div class="loading"><span class="spin" aria-label="Carregando"></span></div>'; }
+  const unseen = mentions.some(m => !m.seen);
+  if (unseen) { markMentionsSeen().catch(() => {}); setTimeout(() => { mentions.forEach(m => m.seen = true); document.querySelector('nav [data-tab="atividade"]')?.classList.remove('dot'); }, 0); }
+  const mm = mentions.slice(0, 5).map(m => { const mine = db.ranked.some(r => r.id === m.place_id);
+    return `<li><button class="row" data-mention="${esc(m.place_id)}">${uAvatar({ ...(m.who || {}), id: m.author })}<span class="t"><b>${esc(m.who?.first_name || 'Alguém')} marcou você</b><small>${esc(m.place_name)} · ${fmtDay(m.visit_date)}${mine ? '' : ' · toque para dar a sua nota'}</small></span>${m.seen ? '' : '<i class="newdot"></i>'}</button></li>`; }).join('');
+  const day = d => new Date(d).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
+  const items = feed.map(f => `<li><div class="fitem"><button class="fwho" data-friend="${f.user_id}" aria-label="Ver perfil de ${esc(f.first_name || f.username)}">${uAvatar({ ...f, id: f.user_id })}</button>
+    <button class="row" data-fplace="${esc(f.place.id)}" data-fdata="${esc(JSON.stringify(f.place))}"><span class="t"><b>${esc(f.first_name || '@' + f.username)} · ${esc(f.place.name)}</b><small>${[day(f.date), f.note && `“${esc(f.note)}”`].filter(Boolean).join(' · ')}</small></span>${f.photos?.length ? `<img class="rthumb" data-path="${esc(f.photos[0])}" alt="">` : ''}${f.nota != null ? pts(f.nota) : ''}</button></div></li>`).join('');
+  if (!mm && !items) return `<div class="wrap empty"><h2>Siga seus amigos</h2><p>Quando alguém que você segue ranquear um lugar, aparece aqui.</p><button class="btn primary" data-a2="findfriends">${icon('search')}Encontrar amigos</button></div>`;
+  return `<div class="wrap" style="padding:0 0 28px">${mm ? `<h2 class="group">Marcações</h2><ol class="table">${mm}</ol>` : ''}${items ? `<h2 class="group">Seus amigos</h2><ol class="table">${items}</ol>` : `<p class="sub" style="padding:16px">Seus amigos ainda não ranquearam nada.</p>`}</div>`;
+}
+
 function render() {
   document.querySelectorAll('nav button').forEach(b => b.dataset.tab === tab ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'));
   $('#seg').innerHTML = ['tabela', 'quero', 'mapa'].includes(tab) ? `<div class="seg">${Object.entries(CATS).map(([k, v]) =>
@@ -807,14 +847,15 @@ function placeSheet(p) {
     const mine = rankedIn(r.cat), sc = scores(mine)[r.id], vs = r.visits.map((v, i) => ({ v, i })).sort((a, b) => b.v.date - a.v.date);
     body = `<p class="sub" style="margin-top:14px">${mine.findIndex(x => x.id === r.id) + 1}º de ${mine.length} no seu ranking de ${CATS[r.cat].toLowerCase()}</p>
       <button class="btn secondary wide story" data-a="story">${icon('share')}Compartilhar nos Stories</button>
-      ${galleryHTML(r)}${communityBox(r, sc)}${infoList(p)}
+      ${galleryHTML(r)}<div class="fat" data-id="${esc(p.id)}"></div>${communityBox(r, sc)}${infoList(p)}
       <div class="box"><h3>Suas visitas · ${vs.length}</h3><ol class="visits">${vs.map(({ v, i }) => { const before = notedVisits(r).filter(x => x.date < v.date).at(-1);
         const arrow = v.nota == null || !before ? '' : v.nota > before.nota ? '<span class="arr up">↑</span>' : v.nota < before.nota ? '<span class="arr down">↓</span>' : '';
         return `<li><button data-a="editvisit" data-vi="${i}" aria-label="Editar visita de ${fmtDay(v.date)}"><time>${fmtDay(v.date)}</time>${v.nota != null ? `<span class="vn cond z-${zone(v.nota)}">${v.nota}</span>${arrow}` : ''}${!before && v.nota == null && v.revisit ? '<span class="tag">voltei</span>' : ''}<span class="vt">${[withText(v.with), (v.tags || []).join(', '), esc(v.note)].filter(Boolean).join(' · ') || '<span style="color:var(--ink-2)">sem anotação</span>'}${v.photos?.length ? ` · ${v.photos.length} foto${v.photos.length > 1 ? 's' : ''}` : ''}</span>${icon('edit')}</button></li>`; }).join('')}</ol></div>
       ${extrasHTML(p)}
       <div class="actions"><button class="btn quiet danger" data-a="remove">Tirar do ranking</button></div>`;
-  } else body = `${communityBox(p, null)}${infoList(p)}${extrasHTML(p)}`;
+  } else body = `<div class="fat" data-id="${esc(p.id)}"></div>${communityBox(p, null)}${infoList(p)}${extrasHTML(p)}`;
   sheet(`<div class="ph"><div class="t">${placeHead(p)}</div><button class="iconbtn" data-a="share" aria-label="Compartilhar" style="margin-right:34px">${icon('share')}</button></div>${actionCells(p)}${body}`, e => {
+    const fr = e.target.closest('[data-friend]'); if (fr) return friendSheet(fr.dataset.friend);
     const b = e.target.closest('[data-a]'); if (!b) return;
     const a = b.dataset.a;
     if (b.dataset.view != null) return openViewer(visits(r).flatMap(v => v.photos || []).reverse(), +b.dataset.view);
@@ -828,6 +869,7 @@ function placeSheet(p) {
     else if (a === 'remove2') { deletePhotos(visits(r).flatMap(v => v.photos || [])).catch(() => {}); db.ranked = db.ranked.filter(x => x.id !== p.id); persist(); dlg.close(); }
     else placeAction(a, p, () => placeSheet(p));
   });
+  friendsAtBox(p);
 }
 // --- idas marcadas (Quero ir): quando, com quem, convite pelo WhatsApp e "Foi?" depois ---
 let planCtx = null;   // ida que virou visita: passa quem e quando para a tela de nota
@@ -1003,26 +1045,129 @@ function profileSheet() {
   sheet(`<div class="prof"><i class="avatar big">${esc((profile?.first_name || '?')[0].toUpperCase())}</i><div><h2>${esc([profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Você')}</h2>${profile ? `<p class="sub">@${esc(profile.username)}</p>` : ''}</div></div>
     ${syncUser ? `<p class="syncline" data-s="${syncState}">${SYNC_TEXT[syncState] || ''}</p>` : ''}
     <div class="stats"><div><b class="cond">${db.ranked.length}</b><span>lugares</span></div><div><b class="cond">${yearPlaces}</b><span>em ${year}</span></div><div><b class="cond">${vs.length}</b><span>visitas</span></div><div><b class="cond">${bairros}</b><span>bairros</span></div></div>
+    ${syncUser ? `<div class="box"><h3>Amigos</h3>
+      <div class="fcount"><button data-a="flist" data-k="followers"><b class="cond">${social.followers.length}</b> seguidores</button><button data-a="flist" data-k="following"><b class="cond">${social.following.filter(f => f.status === 'accepted').length}</b> seguindo</button></div>
+      ${social.requests.length ? `<p class="lbl" style="margin-top:12px">Pedidos para seguir você</p><ol class="simil">${social.requests.map(u => `<li class="req"><button data-friend="${u.id}">${uAvatar(u)}<span class="t"><b>${esc(uName(u))}</b><small>@${esc(u.username)}</small></span></button>
+        <button class="btn primary sm" data-a="accept" data-id="${u.id}">Aceitar</button><button class="btn quiet sm" data-a="reject" data-id="${u.id}">Recusar</button></li>`).join('')}</ol>` : ''}
+      <button class="btn secondary wide" data-a="findfriends" style="margin-top:12px">${icon('search')}Encontrar amigos</button></div>` : ''}
     <div class="box"><h3>Favoritos</h3><div class="favs">${[0, 1, 2, 3].map(i => favs[i]
       ? `<button class="fav" data-a="openfav" data-id="${favs[i].id}">${photo(favs[i]) ? `<img data-path="${esc(photo(favs[i]))}" alt="">` : `<span class="cond z-${zone(sc[favs[i].id])}">${sc[favs[i].id]}</span>`}<small>${esc(favs[i].name)}</small></button>`
       : `<button class="fav empty" data-a="editfavs" aria-label="Escolher favorito">${icon('plus')}</button>`).join('')}</div>
       ${db.ranked.length ? '<button class="btn quiet" data-a="editfavs" style="padding:0;margin-top:6px">Escolher favoritos</button>' : ''}</div>
     <div class="box"><h3>Suas notas</h3><div class="nhist">${hist.map((n, i) => `<div><i class="z-${zone(i + 1)}" style="height:${(n / max) * 100}%"></i><span>${i + 1}</span></div>`).join('')}</div></div>
     <div class="box"><h3>Listas · ${db.lists.length}</h3>${db.lists.length ? `<ol class="simil">${db.lists.map(l => `<li><button data-a="openlist" data-id="${l.id}"><span class="t"><b>${esc(l.name)}</b><small>${l.items.length} lugar${l.items.length === 1 ? '' : 'es'}</small></span></button></li>`).join('')}</ol>` : '<p class="sub">Abra um lugar e toque em "Adicionar a uma lista" para criar a primeira.</p>'}</div>
+    ${syncUser ? `<div class="box"><h3>Quem vê o quê</h3><p class="sub">Seu nome e @ aparecem na busca para quem tem conta. O resto, você escolhe.</p>
+      ${PRIV.map(([k, label]) => `<label class="privrow"><span>${label}</span><select data-priv="${k}">${PRIV_OPTS.map(([v, t]) => `<option value="${v}"${(privacy()[k]) === v ? ' selected' : ''}>${t}</option>`).join('')}</select></label>`).join('')}</div>` : ''}
     <div class="box legal"><button data-a="contact">${icon('chat')}Fale com a Lia</button><button data-a="export">${icon('share')}Baixar meus dados</button>
       <a href="privacidade.html">Política de privacidade</a><a href="termos.html">Termos de uso</a></div>
     <div class="actions"><button class="btn quiet" data-a="logout">Sair da conta</button><button class="btn quiet danger" data-a="delacc">Excluir minha conta</button></div>`, async e => {
+    const fr = e.target.closest('[data-friend]'); if (fr) return friendSheet(fr.dataset.friend);
     const b = e.target.closest('[data-a]'); if (!b) return;
     const a = b.dataset.a;
     if (a === 'openfav') placeSheet(byId(b.dataset.id));
     else if (a === 'editfavs') favPicker();
     else if (a === 'openlist') listSheet(b.dataset.id);
     else if (a === 'contact') contactSheet();
+    else if (a === 'findfriends') friendSearch();
+    else if (a === 'flist') peopleList(b.dataset.k);
+    else if (a === 'accept' || a === 'reject') { b.disabled = true; try { await (a === 'accept' ? acceptFollow : removeFollower)(b.dataset.id); await loadSocial(); toast(a === 'accept' ? 'Pedido aceito' : 'Pedido recusado'); profileSheet(); } catch (err) { b.disabled = false; alertMsg(errorText(err)); } }
     else if (a === 'export') exportData();
     else if (a === 'delacc') deleteAccountSheet();
     else if (a === 'logout') { b.disabled = true; await stopSync(); await signOut().catch(() => {}); dlg.close(); $('#me').hidden = true; profile = null; startOnboarding({ onDone: showAccount }); }
   });
+  dlg.onchange = privChange;
 }
+// --- Amigos ---
+const PRIV = [['ranking', 'Ranking e notas'], ['notes', 'Anotações das visitas'], ['photos', 'Fotos'], ['want', 'Quero ir']];
+const PRIV_OPTS = [['followers', 'Seguidores que aprovei'], ['all', 'Todos com conta'], ['none', 'Só eu']];
+const privacy = () => ({ ranking: 'followers', notes: 'followers', photos: 'followers', want: 'followers', ...(profile?.privacy || {}) });
+const uName = u => [u.first_name, u.last_name].filter(Boolean).join(' ') || '@' + u.username;
+const uAvatar = u => avatar({ name: u.first_name || u.username || '?', userId: u.id });
+async function loadSocial() {
+  if (!syncUser) return;
+  try { [social, mentions] = await Promise.all([myFollows(), myMentions()]); } catch { return; }
+  $('#me').classList.toggle('dot', social.requests.length > 0);
+  document.querySelector('nav [data-tab="atividade"]')?.classList.toggle('dot', mentions.some(m => !m.seen));
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) loadSocial(); });
+// avisa quem tem Lia e foi marcado na visita (só quem já tem ligação com você; o banco recusa o resto)
+function notifyWith(place, visit) {
+  if (!syncUser) return;
+  const linked = new Set([...social.followers, ...social.following.filter(f => f.status === 'accepted')].map(u => u.id));
+  const rows = (visit.with || []).map(person).filter(pp => pp?.userId && linked.has(pp.userId))
+    .map(pp => ({ target: pp.userId, place_id: place.id, place_name: place.name, visit_date: visit.date }));
+  sendMentions(rows).catch(() => {});
+}
+function friendSearch() {
+  sheet(`<h2>Encontrar amigos</h2><p class="sub">Busque pelo nome ou pelo @ de quem já tem Lia.</p>
+    <label class="field qs-field">${icon('search')}<input id="fq" type="search" autocomplete="off" placeholder="Nome ou @usuário"></label><ol class="simil" id="fres"></ol>`, e => {
+    const b = e.target.closest('[data-friend]'); if (b) friendSheet(b.dataset.friend);
+  });
+  let t; dlg.oninput = e => {
+    if (e.target.id !== 'fq') return; clearTimeout(t);
+    t = setTimeout(async () => {
+      const found = await searchProfiles(e.target.value).catch(() => []), box = dlg.querySelector('#fres'); if (!box) return;
+      box.innerHTML = found.map(u => `<li><button data-friend="${u.id}">${uAvatar(u)}<span class="t"><b>${esc(uName(u))}</b><small>@${esc(u.username)}</small></span></button></li>`).join('')
+        || (e.target.value.trim().length > 1 ? '<p class="sub" style="padding:10px 0">Ninguém com esse nome ainda. Convide pelo WhatsApp!</p>' : '');
+    }, 250);
+  };
+  setTimeout(() => dlg.querySelector('#fq')?.focus(), 50);
+}
+function peopleList(k) {
+  const list = k === 'followers' ? social.followers : social.following.filter(f => f.status === 'accepted');
+  sheet(`<h2>${k === 'followers' ? 'Seguidores' : 'Seguindo'}</h2>${list.length ? `<ol class="simil">${list.map(u => `<li><button data-friend="${u.id}">${uAvatar(u)}<span class="t"><b>${esc(uName(u))}</b><small>@${esc(u.username)}</small></span></button></li>`).join('')}</ol>`
+    : `<p class="sub">${k === 'followers' ? 'Ninguém segue você ainda.' : 'Você ainda não segue ninguém.'}</p>`}
+    <button class="btn secondary wide" data-a="find" style="margin-top:14px">${icon('search')}Encontrar amigos</button>`, e => {
+    const b = e.target.closest('[data-friend]'); if (b) return friendSheet(b.dataset.friend);
+    if (e.target.closest('[data-a="find"]')) friendSearch();
+  });
+}
+async function friendSheet(id) {
+  sheet('<div class="loading"><span class="spin" aria-label="Carregando"></span></div>', () => {});
+  let v; try { v = await friendView(id); } catch (err) { return alertMsg(errorText(err)); }
+  if (!dlg.open || !v?.profile) return;
+  const u = v.profile, can = v.can || {};
+  const followBtn = v.follow === 'accepted' ? `<button class="btn secondary sm" data-f="unfollow">Seguindo</button>`
+    : v.follow === 'pending' ? `<button class="btn secondary sm" data-f="cancel">Pedido enviado</button>`
+    : `<button class="btn primary sm" data-f="follow">${v.follows_me === 'accepted' ? 'Seguir de volta' : 'Seguir'}</button>`;
+  const ranked = (v.ranked || []).map(r => ({ ...r, visits: r.visits || [] }));
+  const lists = Object.keys(CATS).map(c => {
+    const mine = ranked.filter(r => r.cat === c).sort((a, b) => b.value - a.value); if (!mine.length) return '';
+    return `<h3 class="group" style="padding:0">${CATS[c]} · ${mine.length}</h3><ol class="table">${mine.map((r, i) => {
+      const last = [...r.visits].sort((a, b) => b.date - a.date)[0] || {}, n = Math.floor(r.value), ph = r.visits.flatMap(x => x.photos || []).at(-1);
+      const sub = [(last.tags || []).join(', '), last.note && `“${esc(last.note)}”`].filter(Boolean).join(' · ') || meta(r);
+      return `<li><button class="row" data-fplace="${esc(r.id)}">${posBadge(i + 1, zone(n))}${rowBody(r, sub)}${ph ? `<img class="rthumb" data-path="${esc(ph)}" alt="">` : ''}${pts(n)}</button></li>`; }).join('')}</ol>`;
+  }).join('');
+  const want = (v.want || []).map(byId).filter(Boolean);
+  const locked = what => `<p class="sub lock">${what} de @${esc(u.username)} ${v.follow === 'accepted' ? 'não estão abertos.' : 'aparecem quando ela aceitar seu pedido.'}</p>`;
+  sheet(`<div class="prof">${uAvatar(u).replace('class="pp', 'class="pp big')}<div style="flex:1"><h2>${esc(uName(u))}</h2><p class="sub">@${esc(u.username)} · ${v.followers} seguidores · ${v.following} seguindo</p></div>${followBtn}</div>
+    ${v.follows_me === 'pending' ? `<div class="box req-box"><p><b>${esc(u.first_name || '@' + u.username)}</b> quer seguir você.</p><button class="btn primary sm" data-f="accept">Aceitar</button><button class="btn quiet sm" data-f="reject">Recusar</button></div>` : ''}
+    ${can.ranking ? (lists || '<p class="sub" style="margin-top:14px">Ainda não ranqueou nenhum lugar.</p>') : locked('O ranking e as notas')}
+    ${can.want ? (want.length ? `<h3 class="group" style="padding:0">Quer ir · ${want.length}</h3><ol class="table">${want.map(p => `<li><button class="row" data-fplace="${esc(p.id)}">${rowBody(p)}</button></li>`).join('')}</ol>` : '') : ''}`, async e => {
+    const pl = e.target.closest('[data-fplace]');
+    if (pl) { const p = byId(pl.dataset.fplace) || ranked.find(r => r.id === pl.dataset.fplace); return p && placeSheet(p); }
+    const b = e.target.closest('[data-f]'); if (!b) return;
+    const f = b.dataset.f;
+    if (f === 'unfollow' && !b.dataset.sure) { b.dataset.sure = 1; b.textContent = 'Deixar de seguir?'; return; }
+    b.disabled = true;
+    try {
+      if (f === 'follow') await follow(id);
+      else if (f === 'cancel' || f === 'unfollow') await unfollow(id);
+      else if (f === 'accept') await acceptFollow(id);
+      else if (f === 'reject') await removeFollower(id);
+      await loadSocial(); toast({ follow: 'Pedido enviado', cancel: 'Pedido cancelado', unfollow: 'Você deixou de seguir', accept: 'Pedido aceito', reject: 'Pedido recusado' }[f]);
+      friendSheet(id);
+    } catch (err) { b.disabled = false; alertMsg(errorText(err)); }
+  });
+}
+// ficha do lugar: amigos que já foram
+async function friendsAtBox(p) {
+  if (!syncUser) return;
+  const list = await friendsAt(p.id).catch(() => []);
+  const box = dlg.open && dlg.querySelector(`.fat[data-id="${CSS.escape(p.id)}"]`); if (!box || !list.length) return;
+  box.innerHTML = `<div class="box"><h3>Amigos que foram · ${list.length}</h3><div class="fat-list">${list.sort((a, b) => b.nota - a.nota).map(u => `<button data-friend="${u.user_id}">${uAvatar({ ...u, id: u.user_id })}<span>${esc(u.first_name || '@' + u.username)}</span>${pts(u.nota)}</button>`).join('')}</div></div>`;
+}
+
 // --- LGPD: falar com a Lia, baixar os dados, excluir a conta ---
 function contactSheet() {
   sheet(`<h2>Fale com a Lia</h2><p class="sub">Dúvidas, sugestões, pedidos sobre seus dados ou reclamações. Respondemos pelo seu e-mail da conta.</p>
@@ -1059,6 +1204,13 @@ function deleteAccountSheet() {
     } catch (err) { b.disabled = false; b.textContent = 'Excluir minha conta'; alertMsg(errorText(err)); }
   });
   dlg.oninput = e => { if (e.target.id === 'delc') dlg.querySelector('[data-a="del"]').disabled = e.target.value.trim().toUpperCase() !== 'EXCLUIR'; };
+}
+
+async function privChange(e) {
+  const k = e.target.dataset.priv; if (!k) return;
+  const next = { ...privacy(), [k]: e.target.value }, before = profile.privacy;
+  profile.privacy = next;
+  try { await setPrivacy(next); toast('Privacidade salva'); } catch (err) { profile.privacy = before; e.target.value = privacy()[k]; alertMsg(errorText(err)); }
 }
 
 function favPicker() {
@@ -1130,7 +1282,7 @@ function editVisit(p, r, i) {
       const d = dlg.querySelector('#vdate').value;
       if (d) { const [y, m, dd] = d.split('-').map(Number), old = new Date(v.date); v.date = new Date(y, m - 1, dd, old.getHours(), old.getMinutes()).getTime(); }
       v.note = dlg.querySelector('#note').value.trim();
-      markRevisits(r); persist(); placeSheet(p);
+      markRevisits(r); persist(); notifyWith(p, v); placeSheet(p);
     } else if (b.dataset.a === 'del') { b.textContent = only ? 'Confirmar: apagar e tirar do ranking' : 'Confirmar: apagar visita'; b.dataset.a = 'del2'; }
     else if (b.dataset.a === 'del2') {
       deletePhotos(v.photos).catch(() => {});   // fotos saem do servidor junto
@@ -1325,7 +1477,7 @@ function finish(place, s) {
     if (tagClick(e, visit)) return;
     if (shotsClick(e, visit)) return;
     if (!e.target.closest('[data-ok]')) return;
-    visit.note = dlg.querySelector('#note').value.trim(); persist(); justRanked = place.id;
+    visit.note = dlg.querySelector('#note').value.trim(); persist(); justRanked = place.id; notifyWith(place, visit);
     if (rankQueue.length) rankFlow(rankQueue.shift()); else dlg.close();
   });
   dlg.oninput = e => whoInput(e, visit);
@@ -1386,6 +1538,11 @@ document.addEventListener('click', e => {
   if (dlg.contains(e.target)) return;
   if (e.target.closest('[data-a="quick"]')) return quickStart();
   const d = e.target.closest('button')?.dataset; if (!d) return;
+  if (d.dmode) { diaryMode = d.dmode; if (d.dmode === 'friends') { feed = null; loadSocial(); } return render(); }
+  if (d.friend) return friendSheet(d.friend);
+  if (d.a2 === 'findfriends') return friendSearch();
+  if (d.mention) { const p = byId(d.mention); if (!p) return; return db.ranked.some(r => r.id === p.id) ? placeSheet(p) : rankFlow(p); }
+  if (d.fplace) { const p = byId(d.fplace) || JSON.parse(d.fdata); return placeSheet(p); }
   if (d.tab) { tab = d.tab; render(); if (tab === 'buscar' && matchMedia('(pointer:fine)').matches) $('#q').focus(); }
   else if (d.cat) { cat = d.cat; render(); }
   else if (d.q) { query = d.q; render(); }
@@ -1447,7 +1604,8 @@ async function startSync(userId) {
   await pullData();
 }
 async function stopSync() {   // ao sair: envia o que faltar e limpa este aparelho
-  clearTimeout(pushTimer);
+  clearTimeout(pushTimer); social = { followers: [], following: [], requests: [] }; mentions = []; feed = null; diaryMode = 'me';
+  $('#me').classList.remove('dot'); document.querySelector('nav [data-tab="atividade"]')?.classList.remove('dot');
   if (syncMeta.dirty) await pushData();
   syncUser = null; db = freshDb(); save('pinhao:v1', db);
   syncMeta = { userId: null, syncedAt: null, dirty: false }; saveMeta(); render();
@@ -1461,7 +1619,7 @@ async function showAccount(o) {
   try { profile = await myProfile(); } catch { profile = null; }   // offline: segue sem o nome
   const me = $('#me'); me.hidden = false;
   me.textContent = (profile?.first_name || '?').trim()[0].toUpperCase();
-  const uid = (await currentUser().catch(() => null))?.id; if (uid) startSync(uid);
+  const uid = (await currentUser().catch(() => null))?.id; if (uid) { await startSync(uid); loadSocial(); }
 }
 async function initAccount() {
   if (!configured) return;   // sem servidor configurado, o app segue só local (desenvolvimento)
@@ -1477,7 +1635,7 @@ $('#me').addEventListener('click', profileSheet);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // A página sabe a própria versão (BUILD é carimbado pelo publicar.sh) e compara com a publicada (version.json).
 // Se estiver atrás, recarrega: ao abrir, ao voltar para a tela e a cada 30 min, desde que nenhuma ficha esteja aberta.
-const BUILD = '20261123003126';
+const BUILD = '20261123004145';
 const publishedVersion = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j?.v ?? null).catch(() => null);
 async function checkUpdate() {
   const v = await publishedVersion();

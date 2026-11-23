@@ -45,7 +45,7 @@ export async function currentUser() {
 export async function myProfile() {
   const s = await client(), user = await currentUser();
   if (!user) return null;
-  const { data, error } = await s.from('profiles').select('username, first_name, last_name').eq('id', user.id).maybeSingle();
+  const { data, error } = await s.from('profiles').select('username, first_name, last_name, privacy').eq('id', user.id).maybeSingle();
   if (error) throw error;
   return data;
 }
@@ -191,4 +191,71 @@ export async function deleteAccount() {
   const { error } = await s.rpc('delete_my_account');
   if (error) throw error;
   await s.auth.signOut().catch(() => {});   // a sessão já não vale; limpa o que sobrou no aparelho
+}
+
+// --- Social: seguir com pedido, privacidade, feed, "quem já foi", marcações ---
+const rpc = async (fn, args) => { const { data, error } = await (await client()).rpc(fn, args); if (error) throw error; return data; };
+export const friendView = id => rpc('friend_view', { target: id });
+export const friendsFeed = () => rpc('friends_feed', { lim: 60 });
+export const friendsAt = placeId => rpc('friends_at', { pid: placeId });
+
+export async function setPrivacy(privacy) {
+  const s = await client(), user = await currentUser();
+  const { error } = await s.from('profiles').update({ privacy }).eq('id', user.id);
+  if (error) throw error;
+}
+export async function follow(id) {
+  const { error } = await (await client()).from('follows').insert({ followee: id });
+  if (error && error.code !== '23505') throw error;   // já pedido: tudo bem
+}
+export async function unfollow(id) {   // cancela pedido ou deixa de seguir
+  const s = await client(), me = await currentUserId();
+  const { error } = await s.from('follows').delete().eq('follower', me).eq('followee', id);
+  if (error) throw error;
+}
+export async function acceptFollow(id) {
+  const s = await client(), me = await currentUserId();
+  const { error } = await s.from('follows').update({ status: 'accepted' }).eq('follower', id).eq('followee', me);
+  if (error) throw error;
+}
+export async function removeFollower(id) {   // recusa pedido ou tira um seguidor
+  const s = await client(), me = await currentUserId();
+  const { error } = await s.from('follows').delete().eq('follower', id).eq('followee', me);
+  if (error) throw error;
+}
+// minhas ligações, já com nome e @ de cada pessoa
+export async function myFollows() {
+  const s = await client(), me = await currentUserId();
+  if (!me) return { followers: [], following: [], requests: [] };
+  const { data, error } = await s.from('follows').select('follower, followee, status').or(`follower.eq.${me},followee.eq.${me}`);
+  if (error) throw error;
+  const ids = [...new Set(data.map(f => f.follower === me ? f.followee : f.follower))];
+  const { data: ps, error: e2 } = ids.length ? await s.from('profiles').select('id, username, first_name, last_name').in('id', ids) : { data: [] };
+  if (e2) throw e2;
+  const P = new Map(ps.map(p => [p.id, p]));
+  const pick = (rows, key) => rows.map(f => ({ ...P.get(f[key]), status: f.status })).filter(p => p.id);
+  return {
+    following: pick(data.filter(f => f.follower === me), 'followee'),
+    followers: pick(data.filter(f => f.followee === me && f.status === 'accepted'), 'follower'),
+    requests: pick(data.filter(f => f.followee === me && f.status === 'pending'), 'follower'),
+  };
+}
+export async function sendMentions(rows) {   // rows: [{ target, place_id, place_name, visit_date }]
+  if (!rows.length) return;
+  const { error } = await (await client()).from('mentions').upsert(rows, { onConflict: 'author,target,place_id,visit_date', ignoreDuplicates: true });
+  if (error) throw error;
+}
+export async function myMentions() {
+  const s = await client(), me = await currentUserId();
+  if (!me) return [];
+  const { data, error } = await s.from('mentions').select('id, author, place_id, place_name, visit_date, seen').eq('target', me).order('created_at', { ascending: false }).limit(30);
+  if (error) throw error;
+  const ids = [...new Set(data.map(m => m.author))];
+  const { data: ps } = ids.length ? await s.from('profiles').select('id, username, first_name').in('id', ids) : { data: [] };
+  const P = new Map((ps || []).map(p => [p.id, p]));
+  return data.map(m => ({ ...m, who: P.get(m.author) }));
+}
+export async function markMentionsSeen() {
+  const s = await client(), me = await currentUserId();
+  await s.from('mentions').update({ seen: true }).eq('target', me).eq('seen', false);
 }
