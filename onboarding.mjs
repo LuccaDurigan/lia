@@ -27,7 +27,7 @@ export function startOnboarding({ onDone, mode = 'welcome' }) {
   const history = [];
   const go = step => { history.push(st.step); st.step = step; st.error = ''; render(); };
   const back = () => { st.step = history.pop() || 'welcome'; st.error = ''; render(); };
-  const finish = () => { root.remove(); onDone(); };
+  const finish = fresh => { root.remove(); onDone({ fresh }); };
 
   // telas -----------------------------------------------------------------
   const screen = (title, sub, body, cta, { backBtn = true } = {}) => `
@@ -79,7 +79,7 @@ export function startOnboarding({ onDone, mode = 'welcome' }) {
     },
     confirm: () => screen('Confirme seu e-mail', `Mandamos um link para <b>${esc(st.email)}</b>. Abra o link e depois volte aqui para entrar.`, '', `<button class="btn primary wide" data-act="to-login">Já confirmei, entrar</button>`, { backBtn: false }),
     done: () => `<div class="onb-screen onb-welcome"><div class="onb-hero"><span class="onb-sig">Lia</span></div>
-        <h1>Que bom ter você aqui, ${esc(st.first.trim())}</h1><p class="onb-sub">Comece ranqueando um lugar onde você foi recentemente.</p>
+        <h1>Que bom ter você aqui, ${esc(st.first.trim())}</h1><p class="onb-sub">Agora marque alguns lugares de Curitiba onde você já foi, e a Lia monta o seu ranking.</p>
         <div class="onb-foot"><button class="btn primary wide" data-act="finish">Começar</button></div></div>`,
     login: () => screen('Entrar', '', field('f-email', st.email, 'type="email" inputmode="email" autocomplete="email" placeholder="E-mail" autocapitalize="off" spellcheck="false"') +
         `<div class="onb-pw">${field('f-pw', st.password, `type="${st.showPw ? 'text' : 'password'}" autocomplete="current-password" placeholder="Senha"`)}
@@ -165,7 +165,7 @@ export function startOnboarding({ onDone, mode = 'welcome' }) {
       st.showPw = !st.showPw; const pw = root.querySelector('#f-pw');
       pw.type = st.showPw ? 'text' : 'password'; b.innerHTML = icon(st.showPw ? 'eyeOff' : 'eye'); b.setAttribute('aria-label', st.showPw ? 'Esconder senha' : 'Mostrar senha'); pw.focus();
     }
-    else if (a === 'finish') finish();
+    else if (a === 'finish') finish(true);
     else if (a === 'forgot') {
       if (!EMAIL_RE.test(st.email)) { st.error = 'Digite seu e-mail acima primeiro.'; return refresh(); }
       st.busy = true; refresh();

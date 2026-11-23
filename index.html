@@ -226,6 +226,14 @@ dialog::backdrop{background:#1d1a1788}
 .visits li:first-child{border-top:0}
 .visits time{flex:none;width:72px;color:var(--ink-2)}
 .tag{flex:none;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-tint);border-radius:6px;padding:1px 6px;align-self:flex-start}
+/* começo guiado */
+.qs-field{margin:14px 0 6px}
+.qs-list{max-height:52vh;overflow:auto;margin:0 -4px;padding:0 4px}
+.row.qs{gap:12px}
+.qs-box{flex:none;width:24px;height:24px;border-radius:7px;box-shadow:inset 0 0 0 1.5px var(--line-2);display:grid;place-items:center;color:transparent;transition:background-color .15s ease,color .15s ease}
+.qs-box svg{width:16px;height:16px}
+.row.qs[aria-pressed="true"] .qs-box{background:var(--accent);box-shadow:none;color:#fff}
+.qs-foot{position:sticky;bottom:0;padding-top:12px;background:linear-gradient(transparent,var(--ground) 30%)}
 /* LGPD no perfil */
 .legal{display:grid;gap:2px}
 .legal button,.legal a{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line);font-size:15px;color:var(--ink);text-decoration:none;text-align:left}
@@ -464,6 +472,7 @@ save('pinhao:v1', db);
 // lugares vêm de places.json (cópia do OpenStreetMap publicada junto com o app; o service worker guarda para uso offline)
 let places = null;
 try { localStorage.removeItem('pinhao:places'); localStorage.removeItem('pinhao:places2'); } catch {}   // caches antigos, de quando o app baixava do Overpass
+let rankQueue = [];   // começo guiado: lugares marcados que ainda faltam ranquear
 let tab = 'tabela', cat = 'RES', query = '', loadError = '', justRanked = null;
 
 const $ = s => document.querySelector(s);
@@ -488,7 +497,7 @@ const visits = r => r.visits || [{ date: r.date, note: r.note || '' }];
 const fmtDay = d => new Date(d).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
 const byId = id => allPlaces().find(p => p.id === id) || db.ranked.find(r => r.id === id);
 
-const ICON = { search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>', bookmark: '<path d="M6 4h12v17l-6-4-6 4z"/>',
+const ICON = { check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>', bookmark: '<path d="M6 4h12v17l-6-4-6 4z"/>',
   undo: '<path d="M9 5L4 10l5 5M4 10h10a5 5 0 0 1 0 10h-3"/>',
   locate: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/>',
   fit: '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>',
@@ -605,7 +614,7 @@ const views = {
     if (!mine.length) return `<div class="wrap empty"><ol class="ghost">${[1, 2, 3].map(i => `<li><span class="pos cond">${i}</span>${['Seu lugar favorito', 'O segundo melhor', 'E assim por diante'][i - 1]}</li>`).join('')}</ol>
       <h2>Seu ranking de ${CATS[cat].toLowerCase()} começa aqui</h2>
       <p>Escolha um lugar onde você já foi, diga como foi e compare com os outros. A nota sai sozinha.</p>
-      <button class="btn primary" data-tab="buscar">${icon('plus')}Ranquear um lugar</button></div>`;
+      <button class="btn primary" data-a="quick">${icon('plus')}Marcar lugares onde já fui</button></div>`;
     let prev;
     const rows = mine.map((r, i) => {
       const z = zone(sc[r.id]), line = prev && prev !== z ? '<li class="zline" role="presentation"></li>' : ''; prev = z;
@@ -742,7 +751,7 @@ function sheet(html, handler) {
   dlg.oninput = null; dlg.onchange = null;
   hydratePhotos(dlg);
 }
-dlg.addEventListener('close', render);
+dlg.addEventListener('close', () => { rankQueue = []; render(); });
 const phead = p => `<div class="phead"><div><h2>${esc(p.name)}</h2><p class="sub">${meta(p)}</p></div></div>`;
 const full = p => ({ ...p, ...allPlaces().find(x => x.id === p.id) });   // entrada ranqueada + dados atuais do OSM
 
@@ -1159,7 +1168,9 @@ function rankFlow(place) {
   sheet(`${phead(place)}<p class="sub" style="margin-top:16px">${prev ? 'Que nota você dá desta vez?' : 'Que nota você dá?'}</p>
     <div class="notas">${Array.from({ length: 10 }, (_, i) => i + 1).map(n => `<button class="cond z-${zone(n)}" data-nota="${n}" aria-pressed="${prev ? Math.floor(prev.value) === n : false}">${n}</button>`).join('')}</div>
     <div class="notas-x"><span>Não gostei</span><span>Amei</span></div>
-    ${prev ? `<p class="prevnota">Da última vez você deu <b class="cond z-${zone(Math.floor(prev.value))}">${Math.floor(prev.value)}</b>. Toque de novo para repetir ou escolha outra nota.</p>` : ''}`, e => {
+    ${prev ? `<p class="prevnota">Da última vez você deu <b class="cond z-${zone(Math.floor(prev.value))}">${Math.floor(prev.value)}</b>. Toque de novo para repetir ou escolha outra nota.</p>` : ''}
+    ${rankQueue.length ? `<button class="btn quiet wide" data-skip>Pular este · faltam ${rankQueue.length}</button>` : ''}`, e => {
+    if (e.target.closest('[data-skip]')) return rankFlow(rankQueue.shift());
     const n = +e.target.closest('[data-nota]')?.dataset.nota; if (!n) return;
     const s = startSession(others.map(r => ({ ...r, similarity: similarity(place, r) })), n);
     s.max = Math.max(1, Math.ceil(Math.log2(s.sublist.length + 1)));
@@ -1306,17 +1317,50 @@ function finish(place, s) {
     <span class="lbl">Fotos <small class="sub">até ${MAX_PHOTOS}</small></span><div id="shots">${shotsHTML(visit)}</div>
     <input type="file" id="ph-in" accept="image/*" multiple hidden>
     <label class="lbl" for="note">Anotação desta visita</label><textarea id="note" rows="2" placeholder="O que você pediu"></textarea>
-    <button class="btn primary wide" data-ok>Ver no ranking</button>`, e => {
+    <button class="btn primary wide" data-ok>${rankQueue.length ? `Próximo lugar · faltam ${rankQueue.length}` : 'Ver no ranking'}</button>`, e => {
     const lv = e.target.closest('[data-love]');
     if (lv) { entry.loved = !entry.loved; persist(); lv.setAttribute('aria-pressed', entry.loved); lv.innerHTML = icon('heart', entry.loved) + 'Amei, voltaria sempre'; return; }
     if (whoClick(e, visit)) return;
     if (tagClick(e, visit)) return;
     if (shotsClick(e, visit)) return;
     if (!e.target.closest('[data-ok]')) return;
-    visit.note = dlg.querySelector('#note').value.trim(); persist(); justRanked = place.id; dlg.close();
+    visit.note = dlg.querySelector('#note').value.trim(); persist(); justRanked = place.id;
+    if (rankQueue.length) rankFlow(rankQueue.shift()); else dlg.close();
   });
   dlg.oninput = e => whoInput(e, visit);
   dlg.onchange = e => { if (e.target.id === 'ph-in') addPhotos(e.target, visit); };
+}
+
+// começo guiado: marcar de uma vez os lugares conhecidos e ranquear um atrás do outro
+function quickStart() {
+  if (!places) return toast('Carregando os lugares…');
+  const picked = new Map(), ranked = new Set(db.ranked.map(r => r.id));
+  const pool = allPlaces().filter(p => !ranked.has(p.id));
+  const known = pool.filter(p => p.insta || p.site);   // sem dados de popularidade: quem tem site ou Instagram costuma ser mais conhecido
+  const list = q => {
+    const nq = norm(q.trim());
+    const hits = nq ? pool.filter(p => norm(`${p.name} ${p.cuisine || ''} ${p.bairro || ''}`).includes(nq)) : known;
+    const rows = [...picked.values(), ...hits.filter(p => !picked.has(p.id))].slice(0, 40);
+    return rows.length ? rows.map(p => `<li><button class="row qs" data-pick="${p.id}" aria-pressed="${picked.has(p.id)}">
+      <span class="qs-box">${icon('check')}</span>${rowBody(p, esc([CATS[p.cat], cuisines(p.cuisine).join(', '), p.bairro].filter(Boolean).join(' · ')))}</button></li>`).join('') : '<p class="sub" style="padding:12px 0">Nada com esse nome.</p>';
+  };
+  const btn = () => picked.size ? `Ranquear ${picked.size} ${picked.size === 1 ? 'lugar' : 'lugares'}` : 'Marque pelo menos um';
+  sheet(`<h2>Onde você já foi?</h2><p class="sub">Marque os lugares de Curitiba que você conhece. Depois você dá a nota de cada um, rapidinho.</p>
+    <label class="field qs-field">${icon('search')}<input id="qsq" type="search" autocomplete="off" placeholder="Buscar pelo nome, culinária ou bairro"></label>
+    <ol class="table qs-list" id="qsl">${list('')}</ol>
+    <div class="qs-foot"><button class="btn primary wide" data-go disabled>${btn()}</button></div>`, e => {
+    const b = e.target.closest('[data-pick]');
+    if (b) {
+      const p = pool.find(x => x.id === b.dataset.pick);
+      picked.has(p.id) ? picked.delete(p.id) : picked.set(p.id, p);
+      b.setAttribute('aria-pressed', picked.has(p.id));
+      const go = dlg.querySelector('[data-go]'); go.disabled = !picked.size; go.textContent = btn();
+      return;
+    }
+    if (!e.target.closest('[data-go]') || !picked.size) return;
+    rankQueue = [...picked.values()]; rankFlow(rankQueue.shift());
+  });
+  dlg.oninput = e => { if (e.target.id === 'qsq') dlg.querySelector('#qsl').innerHTML = list(e.target.value); };
 }
 
 function addPlace() {
@@ -1337,6 +1381,7 @@ function addPlace() {
 // --- eventos ---
 document.addEventListener('click', e => {
   if (dlg.contains(e.target)) return;
+  if (e.target.closest('[data-a="quick"]')) return quickStart();
   const d = e.target.closest('button')?.dataset; if (!d) return;
   if (d.tab) { tab = d.tab; render(); if (tab === 'buscar' && matchMedia('(pointer:fine)').matches) $('#q').focus(); }
   else if (d.cat) { cat = d.cat; render(); }
@@ -1408,7 +1453,8 @@ const SYNC_TEXT = { saving: 'Salvando na conta…', ok: 'Tudo salvo na sua conta
 function syncStatus() { const el = dlg.querySelector('.syncline'); if (el) { el.textContent = SYNC_TEXT[syncState] || ''; el.dataset.s = syncState; } }
 window.addEventListener('online', () => { if (syncMeta.dirty) pushData(); });
 
-async function showAccount() {
+async function showAccount(o) {
+  if (o?.fresh && !db.ranked.length) { const wait = setInterval(() => { if (places) { clearInterval(wait); quickStart(); } }, 200); }
   try { profile = await myProfile(); } catch { profile = null; }   // offline: segue sem o nome
   const me = $('#me'); me.hidden = false;
   me.textContent = (profile?.first_name || '?').trim()[0].toUpperCase();
@@ -1428,7 +1474,7 @@ $('#me').addEventListener('click', profileSheet);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // A página sabe a própria versão (BUILD é carimbado pelo publicar.sh) e compara com a publicada (version.json).
 // Se estiver atrás, recarrega: ao abrir, ao voltar para a tela e a cada 30 min, desde que nenhuma ficha esteja aberta.
-const BUILD = '20261123002343';
+const BUILD = '20261123002859';
 const publishedVersion = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j?.v ?? null).catch(() => null);
 async function checkUpdate() {
   const v = await publishedVersion();
