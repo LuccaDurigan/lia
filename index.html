@@ -356,8 +356,7 @@ function results() {
     const top = (key, n) => { const c = {}; for (const p of places) for (const v of key(p)) c[v] = (c[v] || 0) + 1; return Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, n).map(e => e[0]); };
     const chips = xs => `<div class="chips">${xs.map(x => `<button class="chip" data-q="${esc(x)}">${esc(x)}</button>`).join('')}</div>`;
     return `<h2 class="group">Culinárias</h2>${chips(top(p => cuisines(p.cuisine).slice(0, 1), 12))}
-      <h2 class="group">Bairros</h2>${chips(top(p => p.bairro ? [p.bairro] : [], 10))}
-      <div class="more"><button class="btn secondary" data-act="add">${icon('plus')}Adicionar um lugar que falta</button></div>`;
+      <h2 class="group">Bairros</h2>${chips(top(p => p.bairro ? [p.bairro] : [], 10))}`;
   }
   const sc = allScores();
   const hit = allPlaces().filter(p => norm(`${p.name} ${p.cuisine} ${cuisines(p.cuisine).join(' ')} ${p.bairro}`).includes(q))
@@ -365,8 +364,7 @@ function results() {
   if (!hit.length) return `<div class="msg">Nenhum lugar com “${esc(query.trim())}”.<br><button class="btn secondary" data-act="add">${icon('plus')}Adicionar esse lugar</button></div>`;
   return `<ol class="table" style="margin-top:14px">${hit.map(p => `<li class="row">
     <button class="row-main" data-pick="${p.id}">${rowBody(p)}</button>
-    ${sc[p.id] != null ? pts(sc[p.id]) : `<button class="iconbtn" data-want="${p.id}" aria-pressed="${db.want.includes(p.id)}" aria-label="Quero ir: ${esc(p.name)}">${icon('bookmark', db.want.includes(p.id))}</button>`}</li>`).join('')}</ol>
-    <div class="more"><button class="btn secondary" data-act="add">${icon('plus')}Adicionar um lugar que falta</button></div>`;
+    ${sc[p.id] != null ? pts(sc[p.id]) : `<button class="iconbtn" data-want="${p.id}" aria-pressed="${db.want.includes(p.id)}" aria-label="Quero ir: ${esc(p.name)}">${icon('bookmark', db.want.includes(p.id))}</button>`}</li>`).join('')}</ol>`;
 }
 
 const views = {
