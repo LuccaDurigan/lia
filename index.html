@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f8f5f0">
+<title>Lia</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Lia">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css">
+<style>
+/* fonte 11: EB Garamond (logo, notas, títulos) + Jost (texto); arquivos locais para funcionar offline */
+@font-face{font-family:'EB Garamond';src:url(fonts/eb-garamond.woff2) format('woff2');font-weight:400 800;font-style:normal;font-display:swap}
+@font-face{font-family:'EB Garamond';src:url(fonts/eb-garamond-italic.woff2) format('woff2');font-weight:400 800;font-style:italic;font-display:swap}
+@font-face{font-family:Jost;src:url(fonts/jost.woff2) format('woff2');font-weight:300 700;font-display:swap}
+:root{
+  color-scheme:light;
+  --ground:#f8f5f0;--surface:#fff;--ink:#1d1a17;--ink-2:#6b645c;--line:#ebe5dc;--line-2:#cfc7bb;--track:#ece7df;
+  --accent:#d43d15;--accent-deep:#b93210;--accent-tint:#fbe4da;
+  --win:#1a7f45;--mid:#a86a00;--low:#6d6a66;
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{margin:0;display:flex;flex-direction:column;font:16px/1.45 Jost,system-ui,sans-serif;background:var(--ground);color:var(--ink);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;caret-color:var(--accent)}
+::selection{background:var(--accent-tint);color:var(--ink)}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;text-align:inherit}
+h1,h2,h3,p,ol{margin:0;padding:0}
+ol{list-style:none}
+svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+svg.i.fill{fill:currentColor}
+.wrap{width:100%;max-width:560px;margin:0 auto;padding:0 16px}
+.cond{font-family:'EB Garamond',Georgia,serif;font-weight:500}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:6px}
+
+/* shell */
+.top{background:var(--ground);padding-top:env(safe-area-inset-top);flex:none}
+.brand{display:flex;align-items:center;gap:8px;height:56px}
+.brand h1{font-family:'EB Garamond',Georgia,serif;font-style:italic;font-size:32px;font-weight:500;line-height:1}
+.brand svg{width:15px;height:21px;fill:var(--accent)}
+.brand span{margin-left:auto;color:var(--ink-2);font-size:14px}
+.seg{display:flex;background:var(--track);border-radius:12px;padding:3px;margin-bottom:10px}
+.seg button{flex:1 1 auto;padding:0 8px;white-space:nowrap;height:38px;border-radius:9px;text-align:center;font-size:14px;font-weight:600;color:var(--ink-2);transition:background .2s var(--ease),color .2s}
+.seg button[aria-pressed=true]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px #1d1a1722}
+main{flex:1;overflow-y:auto;overscroll-behavior:contain;scrollbar-color:var(--line-2) transparent;padding-bottom:104px}
+/* barra flutuante: pílula com os destinos e o botão de ação num círculo ao lado */
+nav{position:fixed;z-index:1000;left:0;right:0;bottom:calc(14px + env(safe-area-inset-bottom));pointer-events:none}
+nav .wrap{display:flex;align-items:center;gap:10px;max-width:440px}
+nav .dest{flex:1;display:grid;grid-template-columns:repeat(4,1fr);height:64px;padding:6px;border-radius:32px;background:var(--ink);box-shadow:0 10px 28px -8px #1d1a1788;pointer-events:auto}
+nav .dest button{display:grid;justify-items:center;align-content:center;gap:1px;border-radius:26px;font-size:11px;font-weight:600;color:#b9b1a7;text-align:center;transition:background .25s var(--ease),color .2s}
+nav .dest svg{width:22px;height:22px}
+nav .dest button[aria-current=page]{background:#ffffff1f;color:#fff}
+nav .plus{flex:none;width:64px;height:64px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;box-shadow:0 10px 24px -8px #d43d15cc;pointer-events:auto;transition:transform .2s var(--ease),background .2s}
+nav .plus:active{transform:scale(.93);background:var(--accent-deep)}
+nav .plus svg{width:28px;height:28px;stroke-width:2.6}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+
+/* tabela */
+.thead{display:grid;grid-template-columns:34px 1fr auto;gap:12px;padding:14px 16px 8px;font-size:12px;letter-spacing:.08em;color:var(--ink-2)}
+.table{background:var(--surface);border-block:1px solid var(--line)}
+.row{display:flex;align-items:center;gap:12px;width:100%;min-height:68px;padding:10px 16px;border-bottom:1px solid var(--line)}
+.table>li:last-child .row,.table>li:last-child.row{border-bottom:0}
+button.row:active,.row-main:active{background:var(--ground)}
+.row-main{display:flex;align-items:center;gap:12px;flex:1;min-width:0;min-height:48px}
+.pos{flex:none;width:34px;height:34px;border-radius:8px;display:grid;place-items:center;color:#fff;font-size:19px}
+.t{flex:1;min-width:0}
+.t b{display:block;font-weight:500;font-size:16px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.t small{display:block;font-size:13.5px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pts{font-size:28px;line-height:1;flex:none}
+.z-win{--z:var(--win)}.z-mid{--z:var(--mid)}.z-low{--z:var(--low)}
+.pos[class*=z-],.legend i,.pin[class*=z-]{background:var(--z)}
+.pts[class*=z-]{color:var(--z)}
+.zline{height:0;border-top:2px dashed var(--line-2)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;padding:14px 16px 28px;font-size:13px;color:var(--ink-2)}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px}
+.row.new{animation:land 1.6s var(--ease)}
+@keyframes land{from{background:var(--accent-tint)}}
+
+/* vazio */
+.empty{padding:28px 16px 32px}
+.empty h2{font-family:'EB Garamond',Georgia,serif;font-size:28px;line-height:1.15;font-weight:500;text-wrap:balance}
+.empty p{margin:8px 0 20px;color:var(--ink-2);max-width:38ch}
+.ghost{margin:0 0 24px}
+.ghost li{display:flex;align-items:center;gap:12px;height:56px;border-bottom:2px dashed var(--line-2);color:var(--ink-2);font-size:15px}
+.ghost .pos{background:none;border:2px dashed var(--line-2);color:var(--ink-2)}
+h2.group{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);padding:22px 16px 8px}
+
+/* botões */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:50px;padding:0 22px;border-radius:12px;font-weight:700;font-size:16px;transition:transform .15s var(--ease),background .15s}
+.btn:active{transform:scale(.98)}
+.btn.primary{background:var(--accent);color:#fff}
+.btn.primary:active{background:var(--accent-deep)}
+.btn.secondary{background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--line-2)}
+.btn.secondary[aria-pressed=true]{background:var(--ink);color:#fff;box-shadow:none}
+.btn.quiet{color:var(--ink-2);padding:0 8px;font-weight:600}
+.btn.danger{color:var(--accent-deep)}
+.btn.wide{width:100%}
+.pill{flex:none;min-height:40px;padding:0 16px;border-radius:999px;background:var(--ink);color:#fff;font-weight:700;font-size:14px}
+.iconbtn{flex:none;width:44px;height:44px;display:grid;place-items:center;border-radius:50%;color:var(--ink-2)}
+.iconbtn[aria-pressed=true]{color:var(--accent)}
+
+/* buscar */
+.band{background:var(--ground);padding:0 0 12px;position:sticky;top:0;z-index:2}
+.field{display:flex;align-items:center;gap:10px;height:50px;padding:0 14px;border-radius:12px;background:var(--surface);color:var(--ink-2);box-shadow:inset 0 0 0 1.5px var(--line-2)}
+.field input{flex:1;min-width:0;height:100%;border:0;outline:0;background:none;font:inherit;font-size:17px;color:var(--ink)}
+.field input::placeholder{color:var(--ink-2)}
+.field:focus-within{box-shadow:inset 0 0 0 2px var(--ink)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding:0 16px}
+.chip{min-height:40px;padding:0 14px;border-radius:999px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line-2);font-size:15px;font-weight:550}
+.chip:active{background:var(--line)}
+.msg{padding:28px 16px;color:var(--ink-2)}
+.msg .btn{margin-top:14px}
+.more{padding:20px 16px 32px}
+
+/* mapa */
+main.v-mapa{overflow:hidden;position:relative;padding-bottom:0}
+#map{height:100%;background:var(--ground);font:inherit}
+.pin{display:grid;place-items:center;width:32px;height:32px;border-radius:8px;border:2px solid #fff;color:#fff;font-size:16px;box-shadow:0 3px 8px -2px #0007}
+.pin.want{background:#fff;color:var(--accent);border-radius:50%}
+.pin.want svg{width:16px;height:16px}
+.maphint{position:absolute;z-index:1050;left:50%;top:12px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:8px 14px;border-radius:999px;font-size:14px;font-weight:600;white-space:nowrap;box-shadow:0 4px 12px -4px #0006;pointer-events:none}
+.maphint[hidden]{display:none}
+.maplibregl-ctrl-bottom-left{bottom:calc(88px + env(safe-area-inset-bottom));left:6px}
+.maplibregl-map{font:inherit}
+.ring{display:block;width:48px;height:48px;border-radius:50%;border:3px solid var(--accent);pointer-events:none}
+.pin{cursor:pointer}
+.me{display:block;width:18px;height:18px;border-radius:50%;background:#2456e6;border:3px solid #fff;box-shadow:0 0 0 7px #2456e633}
+.mapbtns{position:absolute;z-index:1050;right:12px;bottom:calc(96px + env(safe-area-inset-bottom));display:grid;gap:10px}
+.mapbtns button{width:50px;height:50px;border-radius:50%;background:var(--surface);display:grid;place-items:center;box-shadow:0 4px 14px -4px #1d1a1766}
+.mapbtns button:active{background:var(--track)}
+#mapcard{position:absolute;z-index:1100;left:12px;right:12px;bottom:calc(92px + env(safe-area-inset-bottom));max-width:536px;margin:0 auto;background:var(--surface);border-radius:20px;padding:8px 8px 14px 16px;box-shadow:0 12px 32px -8px #1d1a1777;animation:rise .3s var(--ease)}
+#mapcard::before{content:'';display:block;width:36px;height:4px;border-radius:2px;background:var(--line-2);margin:0 auto 6px}
+/* ficha estilo app de mapas: nome, nota, status, ações em pílulas */
+.ph{display:flex;align-items:flex-start;gap:8px}
+.ph .t{padding-top:2px}
+.ph h2{font-family:'EB Garamond',Georgia,serif;font-size:25px;line-height:1.15;font-weight:500;text-wrap:balance}
+.ph .open-sheet{flex:1;min-width:0;text-align:left}
+.pline{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin-top:4px;font-size:14.5px;color:var(--ink-2)}
+.pline .pts{font-size:17px}
+.pline .love{margin:0}
+.st-open{color:var(--win);font-weight:650}.st-closed{color:var(--accent-deep);font-weight:650}
+.cells{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 8px 0 0}
+.cell{display:grid;justify-items:center;align-content:center;gap:4px;min-height:64px;padding:8px 4px;border-radius:14px;background:var(--track);font-size:13.5px;font-weight:650;color:var(--ink);text-decoration:none;text-align:center;transition:transform .15s var(--ease)}
+.cell:active{transform:scale(.96)}
+.cell svg{width:22px;height:22px}
+.cell.primary{background:var(--accent);color:#fff}
+.cell[aria-pressed=true]{background:var(--ink);color:#fff}
+.sheet .cells{margin:16px 0 0}
+.info{margin-top:6px}
+.info li{display:flex;gap:14px;align-items:flex-start;padding:13px 0;border-top:1px solid var(--line);font-size:15px}
+.info li:first-child{border-top:0}
+.info svg{width:20px;height:20px;color:var(--ink-2);margin-top:1px}
+.info a{color:var(--ink);text-decoration:none;overflow-wrap:anywhere}
+.info details summary{list-style:none;cursor:pointer}
+.info details summary::-webkit-details-marker{display:none}
+.week{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;margin-top:8px;color:var(--ink-2);font-size:14px}
+.week .today{color:var(--ink);font-weight:650}
+#mapcard:not([hidden])~.mapbtns{display:none}
+.cardhead{display:flex;align-items:center;gap:12px}
+.cardacts{display:flex;gap:8px;margin:12px 4px 0 0}
+.cardacts .btn{flex:1;min-height:46px;padding:0 10px;font-size:15px;white-space:nowrap}
+.cardacts a.btn{text-decoration:none;color:var(--ink)}
+
+/* folha */
+dialog{z-index:2000;border:0;padding:0;margin:auto auto 0;width:100%;max-width:560px;max-height:92dvh;border-radius:22px 22px 0 0;background:var(--ground);color:var(--ink);box-shadow:0 -8px 40px -8px #0006}
+dialog[open]{animation:rise .35s var(--ease)}
+@keyframes rise{from{transform:translateY(28px);opacity:.5}}
+dialog::backdrop{background:#1d1a1788}
+@media (min-width:640px){dialog{margin:auto;border-radius:22px}}
+.sheet{position:relative;padding:22px 20px calc(20px + env(safe-area-inset-bottom))}
+.sheet .x{position:absolute;top:10px;right:10px}
+.sheet h2{font-family:'EB Garamond',Georgia,serif;font-size:26px;line-height:1.15;font-weight:500;padding-right:40px;text-wrap:balance}
+.sub{color:var(--ink-2);font-size:15px;margin-top:2px}
+.phead{display:flex;align-items:center;gap:14px;padding-right:36px}
+.phead h2{padding:0}
+.stat{display:flex;align-items:baseline;gap:12px;margin:18px 0 4px}
+.stat .pts{font-size:56px}
+.note{margin-top:10px;padding:12px 14px;background:var(--surface);border-radius:12px;color:var(--ink)}
+.actions{display:grid;gap:10px;margin-top:20px}
+.how{display:grid;gap:10px;margin-top:18px}
+.how button{display:flex;align-items:center;gap:14px;min-height:64px;padding:0 16px;border-radius:14px;background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--line-2);font-size:18px;font-weight:700}
+.how button:active{box-shadow:inset 0 0 0 2.5px var(--z)}
+.how i{width:22px;height:22px;border-radius:6px;background:var(--z)}
+.how span{margin-left:auto;font-size:14px;font-weight:500;color:var(--ink-2)}
+.duel{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin:18px 0 8px}
+.side{display:grid;justify-items:center;align-content:center;gap:6px;min-height:176px;padding:16px 10px;border-radius:16px;background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--line-2);text-align:center;transition:transform .15s var(--ease),box-shadow .15s}
+.side:active{transform:scale(.97);box-shadow:inset 0 0 0 3px var(--accent)}
+.side b{font-size:16px;line-height:1.2;font-weight:700;text-wrap:balance;overflow-wrap:anywhere}
+.side small{font-size:13px;color:var(--ink-2)}
+.side.in{animation:enter .45s var(--ease)}
+@keyframes enter{from{transform:translateX(36px);opacity:.3}}
+.vs{font-size:22px;color:var(--ink-2)}
+.bar{display:flex;justify-content:space-between;margin:6px -8px 0}
+.bar .btn{min-height:44px;font-size:15px}
+.bar .btn:disabled{opacity:.4}
+.result{display:grid;justify-items:center;text-align:center;gap:4px;padding-top:6px}
+.result h2{padding:0;margin-top:6px}
+.result .pts{font-size:96px;margin:4px 0}
+.lbl{display:block;font-size:14px;font-weight:650;margin:18px 0 6px}
+.input,textarea{width:100%;padding:12px 14px;border:1.5px solid var(--line-2);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;resize:vertical}
+.input:focus,textarea:focus{outline:0;border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.sheet .btn.wide{margin-top:16px}
+/* amei, comunidade, diário */
+.love{color:var(--accent);width:16px;height:16px;vertical-align:-2px;margin-left:4px}
+.t b .love{display:inline}
+.heart[aria-pressed=true]{color:var(--accent)}
+.box{margin-top:18px;padding:14px;background:var(--surface);border-radius:14px}
+.box h3{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);margin-bottom:8px}
+.cscore{display:flex;align-items:baseline;gap:10px}
+.cscore .pts{font-size:40px}
+.hist{display:grid;grid-template-columns:repeat(10,1fr);align-items:end;gap:3px;height:44px;margin-top:12px}
+.hist i{display:block;background:var(--line-2);border-radius:3px 3px 0 0;min-height:2px}
+.hist i.on{background:var(--accent)}
+.hist-x{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-2);margin-top:4px}
+.visits li{display:flex;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:14.5px}
+.visits li:first-child{border-top:0}
+.visits time{flex:none;width:72px;color:var(--ink-2)}
+.tag{flex:none;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-tint);border-radius:6px;padding:1px 6px;align-self:flex-start}
+#install{position:fixed;z-index:1500;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top));max-width:536px;margin:0 auto;display:flex;align-items:center;gap:10px;padding:10px 6px 10px 16px;background:var(--surface);border-radius:16px;box-shadow:0 10px 30px -8px #1d1a1766;animation:rise .35s var(--ease)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap brand"><svg viewBox="0 0 16 22" aria-hidden="true"><path d="M8 0c4 5 8 9 8 14a8 8 0 0 1-16 0C0 9 4 5 8 0z"/></svg><h1>lia</h1><span id="count"></span></div>
+  <div class="wrap" id="seg"></div>
+</header>
+<main id="view"></main>
+<nav aria-label="Principal"><div class="wrap">
+  <div class="dest">
+    <button data-tab="tabela"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h2M4 12h2M4 18h2M10 6h10M10 12h10M10 18h10"/></svg>Tabela</button>
+    <button data-tab="quero"><svg class="i" viewBox="0 0 24 24"><path d="M6 4h12v17l-6-4-6 4z"/></svg>Quero ir</button>
+    <button data-tab="mapa"><svg class="i" viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Mapa</button>
+    <button data-tab="atividade"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Atividade</button>
+  </div>
+  <button class="plus" data-tab="buscar"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span class="sr">Ranquear um lugar</span></button>
+</div></nav>
+<dialog id="dlg"></dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
+<script type="module">
+import { startSession, current, done, answer, undo, finalValue, scores, community } from './ranking.mjs';
+import { parseHours, hoursStatus, hoursWeek } from './hours.mjs';
+
+const CATS = { RES: 'Restaurantes', CAF: 'Cafés e padarias', BAR: 'Bares' };
+// --- estado (localStorage) ---
+const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+let db = load('pinhao:v1', { ranked: [], want: [], custom: [] });   // ranked: {id,name,cat,cuisine,bairro,lat,lon,value,loved,visits:[{date,note,revisit}],date}
+const persist = () => save('pinhao:v1', db);
+// lugares vêm de places.json (cópia do OpenStreetMap publicada junto com o app; o service worker guarda para uso offline)
+let places = null;
+try { localStorage.removeItem('pinhao:places'); localStorage.removeItem('pinhao:places2'); } catch {}   // caches antigos, de quando o app baixava do Overpass
+let tab = 'tabela', cat = 'RES', query = '', loadError = '', justRanked = null;
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const norm = s => s.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
+// topo de "ok" é exatamente 6.7 e de "não gostei" 3.4, por isso o >
+const zone = n => n > 6.7 ? 'win' : n > 3.4 ? 'mid' : 'low';
+const rankedIn = c => db.ranked.filter(r => r.cat === c).sort((a, b) => b.value - a.value);
+const allScores = () => Object.assign({}, ...Object.keys(CATS).map(c => scores(rankedIn(c))));
+const PT = { japanese: 'japonesa', sushi: 'sushi', pizza: 'pizza', burger: 'hambúrguer', italian: 'italiana', brazilian: 'brasileira', regional: 'regional',
+  steak_house: 'churrascaria', barbecue: 'churrasco', chinese: 'chinesa', arab: 'árabe', lebanese: 'libanesa', mexican: 'mexicana', coffee_shop: 'café',
+  sandwich: 'sanduíche', chicken: 'frango', ice_cream: 'sorvete', vegetarian: 'vegetariana', vegan: 'vegana', seafood: 'frutos do mar', french: 'francesa',
+  portuguese: 'portuguesa', german: 'alemã', polish: 'polonesa', ukrainian: 'ucraniana', thai: 'tailandesa', indian: 'indiana', korean: 'coreana',
+  peruvian: 'peruana', bakery: 'padaria', cake: 'doces', dessert: 'sobremesas', fish: 'peixe', international: 'internacional', buffet: 'bufê', crepe: 'crepe',
+  pastel: 'pastel', acai: 'açaí', breakfast: 'café da manhã', juice: 'sucos', beer: 'cerveja', kebab: 'kebab', tapas: 'tapas', hot_dog: 'cachorro-quente' };
+const cuisines = c => (c || '').split(';').map(x => x.trim()).filter(Boolean).map(x => PT[x] || x.replace(/_/g, ' '));
+const fmtScore = n => n.toFixed(1).replace('.', ',');
+const meta = p => esc([cuisines(p.cuisine).join(', '), p.bairro].filter(Boolean).join(' · ') || CATS[p.cat]);
+const allPlaces = () => [...(places || []), ...db.custom];
+// entradas antigas (antes do diário) tinham só date/note
+const visits = r => r.visits || [{ date: r.date, note: r.note || '' }];
+const fmtDay = d => new Date(d).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
+const byId = id => allPlaces().find(p => p.id === id) || db.ranked.find(r => r.id === id);
+
+const ICON = { search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>', bookmark: '<path d="M6 4h12v17l-6-4-6 4z"/>',
+  undo: '<path d="M9 5L4 10l5 5M4 10h10a5 5 0 0 1 0 10h-3"/>',
+  locate: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/>',
+  fit: '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>',
+  route: '<circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h7a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h7"/>', plus: '<path d="M12 5v14M5 12h14"/>',
+  phone: '<path d="M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 5a2 2 0 0 1 2-2z"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+  share: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/>',
+  pin: '<path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  heart: '<path d="M12 20s-7.5-4.6-9.2-9.3A4.7 4.7 0 0 1 12 7.2a4.7 4.7 0 0 1 9.2 3.5C19.5 15.4 12 20 12 20z"/>' };
+const icon = (n, fill) => `<svg class="i${fill ? ' fill' : ''}" viewBox="0 0 24 24" aria-hidden="true">${ICON[n]}</svg>`;
+
+
+async function fetchPlaces() {
+  try {
+    const r = await fetch('places.json');
+    if (!r.ok) throw new Error(r.status);
+    places = await r.json(); loadError = '';
+  } catch (err) { loadError = String(err); }
+  render();
+}
+
+// --- telas ---
+const posBadge = (i, z) => `<span class="pos cond z-${z}">${i}</span>`;
+const pts = (n, cls = '') => `<span class="pts cond z-${zone(n)} ${cls}">${fmtScore(n)}</span>`;
+const loveMark = p => db.ranked.find(r => r.id === p.id)?.loved ? `<svg class="i fill love" viewBox="0 0 24 24" aria-label="Amei">${ICON.heart}</svg>` : '';
+const rowBody = (p, sub) => `<span class="t"><b>${esc(p.name)}${loveMark(p)}</b><small>${sub ?? meta(p)}</small></span>`;
+
+function results() {
+  if (!places) return loadError
+    ? `<div class="msg">Não deu para baixar os lugares de Curitiba. Confira a internet e tente de novo.<br><button class="btn secondary" data-act="retry">Tentar de novo</button></div>`
+    : `<div class="msg">Baixando os lugares de Curitiba…</div>`;
+  const q = norm(query.trim());
+  if (q.length < 2) {
+    const top = (key, n) => { const c = {}; for (const p of places) for (const v of key(p)) c[v] = (c[v] || 0) + 1; return Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, n).map(e => e[0]); };
+    const chips = xs => `<div class="chips">${xs.map(x => `<button class="chip" data-q="${esc(x)}">${esc(x)}</button>`).join('')}</div>`;
+    return `<h2 class="group">Culinárias</h2>${chips(top(p => cuisines(p.cuisine).slice(0, 1), 12))}
+      <h2 class="group">Bairros</h2>${chips(top(p => p.bairro ? [p.bairro] : [], 10))}
+      <div class="more"><button class="btn secondary" data-act="add">${icon('plus')}Adicionar um lugar que falta</button></div>`;
+  }
+  const sc = allScores();
+  const hit = allPlaces().filter(p => norm(`${p.name} ${p.cuisine} ${cuisines(p.cuisine).join(' ')} ${p.bairro}`).includes(q))
+    .sort((a, b) => norm(b.name).startsWith(q) - norm(a.name).startsWith(q)).slice(0, 50);
+  if (!hit.length) return `<div class="msg">Nenhum lugar com “${esc(query.trim())}”.<br><button class="btn secondary" data-act="add">${icon('plus')}Adicionar esse lugar</button></div>`;
+  return `<ol class="table" style="margin-top:14px">${hit.map(p => `<li class="row">
+    <button class="row-main" data-pick="${p.id}">${rowBody(p)}</button>
+    ${sc[p.id] != null ? pts(sc[p.id]) : `<button class="iconbtn" data-want="${p.id}" aria-pressed="${db.want.includes(p.id)}" aria-label="Quero ir: ${esc(p.name)}">${icon('bookmark', db.want.includes(p.id))}</button>`}</li>`).join('')}</ol>
+    <div class="more"><button class="btn secondary" data-act="add">${icon('plus')}Adicionar um lugar que falta</button></div>`;
+}
+
+const views = {
+  tabela() {
+    const mine = rankedIn(cat), sc = scores(mine);
+    if (!mine.length) return `<div class="wrap empty"><ol class="ghost">${[1, 2, 3].map(i => `<li><span class="pos cond">${i}</span>${['Seu lugar favorito', 'O segundo melhor', 'E assim por diante'][i - 1]}</li>`).join('')}</ol>
+      <h2>Sua tabela de ${CATS[cat].toLowerCase()} começa aqui</h2>
+      <p>Escolha um lugar onde você já foi, diga como foi e compare com os outros. A nota sai sozinha.</p>
+      <button class="btn primary" data-tab="buscar">${icon('plus')}Ranquear um lugar</button></div>`;
+    let prev;
+    const rows = mine.map((r, i) => {
+      const z = zone(sc[r.id]), line = prev && prev !== z ? '<li class="zline" role="presentation"></li>' : ''; prev = z;
+      return `${line}<li><button class="row${r.id === justRanked ? ' new' : ''}" data-open="${r.id}">${posBadge(i + 1, z)}${rowBody(r)}${pts(sc[r.id])}</button></li>`;
+    }).join('');
+    return `<div class="wrap" style="padding:0"><div class="thead cond"><span>POS</span><span>LUGAR</span><span>NOTA</span></div><ol class="table">${rows}</ol>
+      <p class="legend"><span><i class="z-win"></i>Gostei</span><span><i class="z-mid"></i>Foi ok</span><span><i class="z-low"></i>Não gostei</span></p></div>`;
+  },
+  quero() {
+    const want = allPlaces().filter(p => db.want.includes(p.id) && p.cat === cat);
+    if (!want.length) return `<div class="wrap empty"><h2>Nenhum lugar salvo em ${CATS[cat].toLowerCase()}</h2>
+      <p>Na busca ou no mapa, toque no marcador de um lugar para guardar aqui e não esquecer.</p>
+      <button class="btn primary" data-tab="buscar">${icon('search')}Buscar lugares</button></div>`;
+    return `<div class="wrap" style="padding:14px 0 0"><ol class="table">${want.map(p => `<li class="row"><button class="row-main" data-open="${p.id}">${rowBody(p)}</button><button class="pill" data-rank="${p.id}">Já fui</button></li>`).join('')}</ol></div>`;
+  },
+  buscar() {
+    return `<div class="band"><div class="wrap"><label class="field">${icon('search')}<input id="q" type="search" enterkeyhint="search" autocomplete="off" placeholder="Nome, culinária ou bairro" aria-label="Buscar lugar" value="${esc(query)}"></label></div></div>
+      <div class="wrap" style="padding:0" id="results">${results()}</div>`;
+  },
+  mapa() { return `<div id="map"></div><p class="maphint">Aproxime para ver todos os lugares</p><div id="mapcard" hidden></div>
+    <div class="mapbtns"><button data-m="me" aria-label="Minha localização">${icon('locate')}</button><button data-m="fit" aria-label="Ver meus lugares">${icon('fit')}</button></div>`; },
+  atividade() {
+    const sc = allScores(), items = db.ranked.flatMap(r => visits(r).map(v => ({ ...r, date: v.date, visit: v }))).sort((a, b) => b.date - a.date);
+    if (!items.length) return `<div class="wrap empty"><h2>Nada por aqui ainda</h2><p>Cada lugar que você ranquear aparece nesta lista, do mais recente ao mais antigo.</p>
+      <button class="btn primary" data-tab="buscar">${icon('plus')}Ranquear um lugar</button></div>`;
+    const day = d => { const diff = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(d).setHours(0, 0, 0, 0)) / 864e5);
+      return diff === 0 ? 'Hoje' : diff === 1 ? 'Ontem' : new Date(d).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' }); };
+    let last, out = '';
+    for (const r of items) {
+      const d = day(r.date);
+      if (d !== last) { out += `${last ? '</ol>' : ''}<h2 class="group">${d}</h2><ol class="table">`; last = d; }
+      const sub = [r.visit.revisit ? 'Voltei' : 'Primeira visita', r.visit.note && `“${esc(r.visit.note)}”`].filter(Boolean).join(' · ');
+      out += `<li><button class="row" data-open="${r.id}">${rowBody(r, sub)}${pts(sc[r.id])}</button></li>`;
+    }
+    return `<div class="wrap" style="padding:0 0 28px">${out}</ol></div>`;
+  },
+};
+
+let map, mapState = null, mapSel = null, me = null;
+function render() {
+  document.querySelectorAll('nav button').forEach(b => b.dataset.tab === tab ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'));
+  $('#seg').innerHTML = ['tabela', 'quero', 'mapa'].includes(tab) ? `<div class="seg">${Object.entries(CATS).map(([k, v]) =>
+    `<button data-cat="${k}" aria-pressed="${k === cat}">${v}</button>`).join('')}</div>` : '';
+  $('#count').textContent = db.ranked.length ? `${db.ranked.length} ${db.ranked.length === 1 ? 'lugar' : 'lugares'}` : 'Curitiba';
+  const view = $('#view');
+  view.className = 'v-' + tab; view.innerHTML = views[tab](); view.scrollTop = 0;
+  if (tab === 'mapa') drawMap();
+  justRanked = null;
+}
+
+const CENTER = [-49.2733, -25.4284];   // MapLibre usa [lon, lat]
+function drawMap() {
+  map?.remove();
+  // mapa vetorial (MapLibre) com o estilo aberto do OpenFreeMap: nítido em qualquer zoom, sem chave
+  map = new maplibregl.Map({ container: 'map', style: 'https://tiles.openfreemap.org/styles/bright', center: mapState?.c ?? CENTER, zoom: mapState?.z ?? 14,
+    attributionControl: false, dragRotate: false, pitchWithRotate: false });
+  map.touchZoomRotate.disableRotation();
+  map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
+  if (matchMedia('(pointer:fine)').matches) map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+  const mine = rankedIn(cat), sc = scores(mine), taken = new Set([...mine.map(r => r.id), ...db.want]);
+  const want = allPlaces().filter(p => db.want.includes(p.id) && p.cat === cat && p.lat);
+  const card = $('#mapcard'), hint = $('.maphint');
+  const el = html => { const d = document.createElement('div'); d.innerHTML = html; return d.firstChild; };
+  let ring, meMarker;
+
+  // cartão do lugar: não cobre o mapa nem tira você de onde estava
+  const hide = () => { card.hidden = true; ring?.remove(); mapSel = null; };
+  const show = p => {
+    card.style.animation = !card.hidden && mapSel === p.id ? 'none' : '';   // atualizar o mesmo lugar não repete a entrada
+    mapSel = p.id; ring?.remove();
+    ring = new maplibregl.Marker({ element: el('<span class="ring"></span>') }).setLngLat([p.lon, p.lat]).addTo(map);
+    card.hidden = false;
+    card.innerHTML = `<div class="ph"><button class="open-sheet" data-a="open" aria-label="Abrir ficha de ${esc(p.name)}">${placeHead(p)}</button>
+      <button class="iconbtn" data-a="share" aria-label="Compartilhar">${icon('share')}</button><button class="iconbtn" data-m="close" aria-label="Fechar">${icon('x')}</button></div>${actionCells(p)}`;
+    card.onclick = e => {
+      if (e.target.closest('[data-m="close"]')) return hide();
+      const a = e.target.closest('[data-a]')?.dataset.a;
+      if (a) placeAction(a, p, a === 'want' ? render : () => show(p));   // só "Quero ir" muda os pinos do mapa
+    };
+    // traz o lugar para a parte livre da tela, acima do cartão
+    const pt = map.project([p.lon, p.lat]), h = map.getContainer().clientHeight;
+    if (pt.y > h - 290 || pt.y < 70 || pt.x < 30 || pt.x > map.getContainer().clientWidth - 30) map.easeTo({ center: [p.lon, p.lat], offset: [0, -110] });
+  };
+
+  // lugares ainda não ranqueados: pontos com o nome ao lado, como num mapa de celular
+  map.on('load', () => {
+    for (const l of map.getStyle().layers) if (l.id.startsWith('poi')) map.removeLayer(l.id);
+    const at = $('.maplibregl-ctrl-attrib'); at?.classList.remove('maplibregl-compact-show'); at?.removeAttribute('open');   // crédito recolhido no (i)
+    map.addSource('dots', { type: 'geojson', data: { type: 'FeatureCollection', features: (places || []).filter(p => p.cat === cat && p.lat && !taken.has(p.id))
+      .map(p => ({ type: 'Feature', properties: { id: p.id, name: p.name }, geometry: { type: 'Point', coordinates: [p.lon, p.lat] } })) } });
+    map.addLayer({ id: 'dots', type: 'circle', source: 'dots', minzoom: 12.5, paint: {
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 12.5, 2.5, 15, 5, 17, 7], 'circle-color': '#1d1a17', 'circle-stroke-color': '#fff',
+      'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 12.5, 1, 16, 2.5] } });
+    map.addLayer({ id: 'dot-names', type: 'symbol', source: 'dots', minzoom: 14.6, layout: { 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Regular'],
+      'text-size': 12.5, 'text-anchor': 'top', 'text-offset': [0, .7], 'text-max-width': 8 }, paint: { 'text-color': '#1d1a17', 'text-halo-color': '#fff', 'text-halo-width': 1.6 } });
+    const hit = e => map.queryRenderedFeatures([[e.point.x - 12, e.point.y - 12], [e.point.x + 12, e.point.y + 12]], { layers: ['dots', 'dot-names'] })[0];
+    map.on('click', e => { const f = hit(e); f ? show(byId(f.properties.id)) : hide(); });
+    map.on('mousemove', e => { map.getCanvas().style.cursor = hit(e) ? 'pointer' : ''; });
+  });
+  const sync = () => { hint.textContent = 'Aproxime para ver todos os lugares'; hint.hidden = map.getZoom() >= 12.5; };
+  map.on('zoomend', sync);
+
+  const pin = (p, html) => { const e = el(html); e.title = p.name; e.onclick = ev => { ev.stopPropagation(); show(p); }; new maplibregl.Marker({ element: e }).setLngLat([p.lon, p.lat]).addTo(map); };
+  want.forEach(p => pin(p, `<span class="pin want">${icon('bookmark', true)}</span>`));
+  [...mine].reverse().forEach(r => r.lat && pin(r, `<span class="pin cond z-${zone(sc[r.id])}">${mine.indexOf(r) + 1}</span>`));
+
+  const own = [...mine, ...want].filter(p => p.lat);
+  const fit = animate => { if (!own.length) return map.jumpTo({ center: CENTER, zoom: 14 });
+    map.fitBounds(own.reduce((b, p) => b.extend([p.lon, p.lat]), new maplibregl.LngLatBounds()), { padding: { top: 70, bottom: 130, left: 50, right: 50 }, maxZoom: 15, animate }); };
+  // volta para onde você estava: fechar uma ficha ou trocar de categoria não reinicia o mapa
+  if (!mapState) fit(false);
+  map.on('moveend', () => { mapState = { c: map.getCenter(), z: map.getZoom() }; });
+  const drawMe = () => { meMarker?.remove(); if (me) meMarker = new maplibregl.Marker({ element: el('<span class="me"></span>') }).setLngLat(me).addTo(map); };
+  $('.mapbtns').onclick = e => {
+    const m = e.target.closest('[data-m]')?.dataset.m;
+    if (m === 'fit') fit(true);
+    if (m === 'me') {
+      const fail = () => { hint.textContent = 'Não deu para pegar sua localização. Libere a permissão no navegador.'; hint.hidden = false; setTimeout(sync, 5000); };
+      navigator.geolocation ? navigator.geolocation.getCurrentPosition(pos => { me = [pos.coords.longitude, pos.coords.latitude]; drawMe(); map.flyTo({ center: me, zoom: 16 }); }, fail, { enableHighAccuracy: true, timeout: 10000 }) : fail();
+    }
+  };
+  drawMe(); sync();
+  const sel = mapSel && byId(mapSel);
+  if (sel?.lat && sel.cat === cat) show(sel); else mapSel = null;
+}
+
+// --- folhas ---
+const dlg = $('#dlg');
+function sheet(html, handler) {
+  dlg.innerHTML = `<div class="sheet"><button class="iconbtn x" data-close aria-label="Fechar">${icon('x')}</button>${html}</div>`;
+  if (!dlg.open) dlg.showModal();
+  dlg.onclick = e => { if (e.target === dlg || e.target.closest('[data-close]')) return dlg.close(); handler(e); };
+}
+dlg.addEventListener('close', render);
+const phead = p => `<div class="phead"><div><h2>${esc(p.name)}</h2><p class="sub">${meta(p)}</p></div></div>`;
+const full = p => ({ ...p, ...allPlaces().find(x => x.id === p.id) });   // entrada ranqueada + dados atuais do OSM
+
+// cabeçalho comum ao cartão e à ficha: nome, sua nota, culinária, status de horário
+function placeHead(p) {
+  const f = full(p), r = db.ranked.find(x => x.id === p.id), sc = r && scores(rankedIn(r.cat))[r.id];
+  const st = hoursStatus(parseHours(f.hours));
+  const bits = [r ? `${pts(sc)}<span>sua nota</span>${r.loved ? loveMark(p) : ''}` : '', esc(cuisines(f.cuisine).join(', ') || CATS[f.cat]), esc(f.bairro)].filter(Boolean);
+  return `<h2>${esc(f.name)}</h2><div class="pline">${bits.join('<span aria-hidden="true">·</span>')}</div>
+    ${st ? `<div class="pline"><span class="${st.open ? 'st-open' : 'st-closed'}">${st.text.split(' · ')[0]}</span>${st.text.includes(' · ') ? `<span>· ${st.text.split(' · ')[1]}</span>` : ''}</div>` : ''}`;
+}
+
+// três ações principais em células; ligar e site ficam nas linhas de informação da ficha
+function actionCells(p) {
+  const f = full(p), r = db.ranked.find(x => x.id === p.id), saved = db.want.includes(p.id);
+  const cell = (a, ic, label, extra = '') => `<button class="cell" data-a="${a}" ${extra}>${icon(ic, extra.includes('true'))}${label}</button>`;
+  return `<div class="cells">
+    <a class="cell primary" href="https://www.google.com/maps/dir/?api=1&destination=${f.lat},${f.lon}" target="_blank" rel="noopener">${icon('route')}Rota</a>
+    ${r ? cell('rank', 'plus', 'Voltei aqui') + cell('love', 'heart', 'Amei', `aria-pressed="${!!r.loved}"`)
+        : cell('rank', 'plus', 'Já fui') + cell('want', 'bookmark', saved ? 'Salvo' : 'Quero ir', `aria-pressed="${saved}"`)}</div>`;
+}
+
+function placeAction(a, p, after) {
+  const f = full(p);
+  if (a === 'open') placeSheet(p);
+  else if (a === 'rank') rankFlow(p);
+  else if (a === 'want') { toggleWant(p.id); after(); }
+  else if (a === 'love') { const r = db.ranked.find(x => x.id === p.id); r.loved = !r.loved; persist(); after(); }
+  else if (a === 'share') {
+    const text = `${f.name}${f.street ? ' — ' + f.street : ''}`, url = `https://www.google.com/maps/search/?api=1&query=${f.lat},${f.lon}`;
+    navigator.share ? navigator.share({ title: f.name, text, url }).catch(() => {}) : navigator.clipboard?.writeText(`${text} ${url}`);
+  }
+}
+
+function infoList(p) {
+  const f = full(p), week = parseHours(f.hours), rows = [];
+  if (f.street || f.bairro) rows.push(`<li>${icon('pin')}<a href="https://www.google.com/maps/search/?api=1&query=${f.lat},${f.lon}" target="_blank" rel="noopener">${esc([f.street, f.bairro, 'Curitiba'].filter(Boolean).join(' · '))}</a></li>`);
+  if (week) rows.push(`<li>${icon('clock')}<details><summary>${esc(hoursStatus(week).text)} ▾</summary><div class="week">${hoursWeek(week).map(d => `<span class="${d.today ? 'today' : ''}">${d.day}</span><span class="${d.today ? 'today' : ''}">${d.text}</span>`).join('')}</div></details></li>`);
+  else if (f.hours) rows.push(`<li>${icon('clock')}<span>${esc(f.hours)}</span></li>`);
+  if (f.phone) rows.push(`<li>${icon('phone')}<a href="tel:${esc(f.phone.split(';')[0].replace(/[^\d+]/g, ''))}">${esc(f.phone.split(';')[0])}</a></li>`);
+  if (f.site) rows.push(`<li>${icon('globe')}<a href="${esc(/^https?:/.test(f.site) ? f.site : 'https://' + f.site)}" target="_blank" rel="noopener">${esc(f.site.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''))}</a></li>`);
+  if (f.insta) rows.push(`<li>${icon('globe')}<a href="https://instagram.com/${esc(f.insta.replace(/^.*instagram\.com\//, '').replace(/^@/, ''))}" target="_blank" rel="noopener">@${esc(f.insta.replace(/^.*instagram\.com\//, '').replace(/^@/, '').replace(/\/$/, ''))}</a></li>`);
+  return rows.length ? `<div class="box"><ul class="info" style="list-style:none;margin:0;padding:0">${rows.join('')}</ul></div>` : '';
+}
+
+function placeSheet(p) {
+  const r = db.ranked.find(x => x.id === p.id);
+  let body = '';
+  if (r) {
+    const mine = rankedIn(r.cat), sc = scores(mine)[r.id], vs = [...visits(r)].sort((a, b) => b.date - a.date);
+    body = `<p class="sub" style="margin-top:14px">${mine.findIndex(x => x.id === r.id) + 1}º de ${mine.length} na sua tabela de ${CATS[r.cat].toLowerCase()}</p>
+      ${communityBox(r, sc)}${infoList(p)}
+      <div class="box"><h3>Suas visitas · ${vs.length}</h3><ol class="visits">${vs.map(v => `<li><time>${fmtDay(v.date)}</time>${v.revisit ? '<span class="tag">voltei</span>' : ''}<span>${esc(v.note) || '<span style="color:var(--ink-2)">sem anotação</span>'}</span></li>`).join('')}</ol></div>
+      <div class="actions"><button class="btn quiet danger" data-a="remove">Tirar da tabela</button></div>`;
+  } else body = `${communityBox(p, null)}${infoList(p)}`;
+  sheet(`<div class="ph"><div class="t">${placeHead(p)}</div><button class="iconbtn" data-a="share" aria-label="Compartilhar" style="margin-right:34px">${icon('share')}</button></div>${actionCells(p)}${body}`, e => {
+    const b = e.target.closest('[data-a]'); if (!b) return;
+    const a = b.dataset.a;
+    if (a === 'remove') { b.textContent = 'Confirmar: tirar da tabela'; b.dataset.a = 'remove2'; }
+    else if (a === 'remove2') { db.ranked = db.ranked.filter(x => x.id !== p.id); persist(); dlg.close(); }
+    else placeAction(a, p, () => placeSheet(p));
+  });
+}
+// Protótipo sem backend: a "comunidade" é só você. Com o servidor, `ratings` vem de todos os usuários de Curitiba.
+function communityBox(r, myScore) {
+  const all = allScores(), vals = Object.values(all), C = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 7;
+  const c = community(myScore == null ? [] : [{ user: 'eu', score: myScore, date: visits(r).at(-1).date }], C);
+  if (!c.count) return `<div class="box"><h3>Curitiba</h3><p class="sub">Ninguém avaliou ainda. Seja o primeiro.</p></div>`;
+  const max = Math.max(1, ...c.hist), mine = myScore == null ? -1 : Math.min(9, Math.floor(myScore));
+  return `<div class="box"><h3>Curitiba</h3>
+    <div class="cscore">${c.score != null ? pts(c.score) + `<span class="sub">${c.count} avaliações</span>`
+      : `<span class="sub">A nota da comunidade aparece com ${c.count + c.need} avaliações. Por enquanto: ${c.count}.</span>`}</div>
+    <div class="hist" role="img" aria-label="Distribuição das notas">${c.hist.map((n, i) => `<i class="${i === mine ? 'on' : ''}" style="height:${(n / max) * 100}%"></i>`).join('')}</div>
+    <div class="hist-x"><span>0</span><span>5</span><span>10</span></div></div>`;
+}
+const toggleWant = id => { db.want = db.want.includes(id) ? db.want.filter(i => i !== id) : [...db.want, id]; persist(); };
+
+const similarity = (a, b) => {
+  const ca = a.cuisine.split(';'), cb = (b.cuisine || '').split(';');
+  return ca.filter(c => c && cb.includes(c)).length + (a.bairro && a.bairro === b.bairro ? 1 : 0);
+};
+
+function rankFlow(place) {
+  const others = rankedIn(place.cat).filter(r => r.id !== place.id);
+  const again = db.ranked.some(r => r.id === place.id);
+  sheet(`${phead(place)}${again ? '<p class="sub" style="margin-top:14px">Como foi desta vez?</p>' : ''}<div class="how">
+    <button data-like="1" class="z-win"><i></i>Gostei<span>6,8 a 10</span></button>
+    <button data-like="0" class="z-mid"><i></i>Foi ok<span>3,5 a 6,7</span></button>
+    <button data-like="-1" class="z-low"><i></i>Não gostei<span>0 a 3,4</span></button></div>`, e => {
+    const like = e.target.closest('[data-like]')?.dataset.like; if (like == null) return;
+    const s = startSession(others.map(r => ({ ...r, similarity: similarity(place, r) })), +like);
+    s.max = Math.max(1, Math.ceil(Math.log2(s.sublist.length + 1)));
+    compare(place, s, true);
+  });
+}
+
+function compare(place, s, enter) {
+  if (done(s)) return finish(place, s);
+  const c = current(s);
+  sheet(`<h2>Qual você prefere?</h2><p class="sub">Confronto ${Math.min(s.history.length + 1, s.max)} de até ${s.max}</p><div class="duel">
+    <button class="side" data-a="better"><b>${esc(place.name)}</b><small>${meta(place)}</small></button><span class="vs cond">×</span>
+    <button class="side${enter ? ' in' : ''}" data-a="worse"><b>${esc(c.name)}</b><small>${meta(c)}</small></button></div>
+    <div class="bar"><button class="btn quiet" data-a="undo" ${s.history.length ? '' : 'disabled'}>${icon('undo')}Desfazer</button>
+    <button class="btn quiet" data-a="skip">Pular</button><button class="btn quiet" data-a="tough">Difícil demais</button></div>`, e => {
+    const a = e.target.closest('[data-a]')?.dataset.a; if (!a) return;
+    if (a === 'undo') undo(s); else if (a === 'tough') s.sublist = []; else answer(s, a);
+    compare(place, s, a !== 'undo');
+  });
+}
+
+function finish(place, s) {
+  const prev = db.ranked.find(r => r.id === place.id);
+  db.ranked = db.ranked.filter(r => r.id !== place.id);
+  const visit = { date: Date.now(), note: '', revisit: !!prev };
+  const entry = { id: place.id, name: place.name, cat: place.cat, cuisine: place.cuisine, bairro: place.bairro, lat: place.lat, lon: place.lon,
+    value: finalValue(s), loved: !!prev?.loved, visits: [...(prev ? visits(prev) : []), visit], date: visit.date };
+  db.ranked.push(entry); db.want = db.want.filter(id => id !== place.id); persist();
+  const mine = rankedIn(place.cat), sc = scores(mine)[place.id];
+  tab = 'tabela'; cat = place.cat; justRanked = place.id;
+  sheet(`<div class="result"><h2>${esc(place.name)}</h2>${pts(sc)}
+    <p>${mine.findIndex(x => x.id === place.id) + 1}º de ${mine.length} em ${CATS[place.cat].toLowerCase()}</p></div>
+    <button class="btn secondary wide heart" data-love aria-pressed="${entry.loved}">${icon('heart', entry.loved)}Amei, voltaria sempre</button>
+    <label class="lbl" for="note">Anotação desta visita</label><textarea id="note" rows="2" placeholder="O que você pediu, com quem foi"></textarea>
+    <button class="btn primary wide" data-ok>Ver na tabela</button>`, e => {
+    const lv = e.target.closest('[data-love]');
+    if (lv) { entry.loved = !entry.loved; persist(); lv.setAttribute('aria-pressed', entry.loved); lv.innerHTML = icon('heart', entry.loved) + 'Amei, voltaria sempre'; return; }
+    if (!e.target.closest('[data-ok]')) return;
+    visit.note = dlg.querySelector('#note').value.trim(); persist(); justRanked = place.id; dlg.close();
+  });
+}
+
+function addPlace() {
+  sheet(`<h2>Adicionar lugar</h2>
+    <label class="lbl" for="n">Nome</label><input class="input" id="n" value="${esc(query.trim())}" autocomplete="off">
+    <label class="lbl" for="b">Bairro</label><input class="input" id="b" autocomplete="off">
+    <label class="lbl" for="c">Culinária</label><input class="input" id="c" placeholder="italiana, japonesa…" autocomplete="off">
+    <label class="lbl" for="k">Tipo</label><select class="input" id="k">${Object.entries(CATS).map(([k, v]) => `<option value="${k}" ${k === cat ? 'selected' : ''}>${v}</option>`).join('')}</select>
+    <button class="btn primary wide" data-ok>Continuar</button>`, e => {
+    if (!e.target.closest('[data-ok]')) return;
+    const name = dlg.querySelector('#n').value.trim(); if (!name) return dlg.querySelector('#n').focus();
+    const p = { id: 'u' + Date.now(), name, bairro: dlg.querySelector('#b').value.trim(),
+      cuisine: dlg.querySelector('#c').value.trim().toLowerCase().replace(/\s+/g, '_'), cat: dlg.querySelector('#k').value };
+    db.custom.push(p); persist(); rankFlow(p);
+  });
+}
+
+// --- eventos ---
+document.addEventListener('click', e => {
+  if (dlg.contains(e.target)) return;
+  const d = e.target.closest('button')?.dataset; if (!d) return;
+  if (d.tab) { tab = d.tab; render(); if (tab === 'buscar' && matchMedia('(pointer:fine)').matches) $('#q').focus(); }
+  else if (d.cat) { cat = d.cat; render(); }
+  else if (d.q) { query = d.q; render(); }
+  else if (d.pick) { const p = byId(d.pick); db.ranked.some(r => r.id === p.id) ? placeSheet(p) : rankFlow(p); }
+  else if (d.rank) rankFlow(byId(d.rank));
+  else if (d.open) placeSheet(byId(d.open));
+  else if (d.want) { toggleWant(d.want); $('#results').innerHTML = results(); }
+  else if (d.act === 'add') addPlace();
+  else if (d.act === 'retry') { loadError = ''; render(); fetchPlaces(); }
+});
+$('#view').addEventListener('input', e => { if (e.target.id === 'q') { query = e.target.value; $('#results').innerHTML = results(); } });
+
+render();
+fetchPlaces();
+
+// --- PWA: service worker (atualiza sozinho) e convite para instalar ---
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+const dismissed = () => load('lia:install-dismissed', 0) > Date.now() - 14 * 864e5;
+function installBanner(html, onYes) {
+  if (standalone || dismissed() || $('#install')) return;
+  const b = document.createElement('div'); b.id = 'install'; b.innerHTML = html + `<button class="iconbtn" data-x aria-label="Agora não">${icon('x')}</button>`;
+  b.onclick = e => { if (e.target.closest('[data-x]')) { save('lia:install-dismissed', Date.now()); b.remove(); } else if (e.target.closest('[data-yes]')) onYes(b); };
+  document.body.append(b);
+}
+// Android/Chrome: o navegador oferece o prompt nativo
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  installBanner(`<span class="t"><b>Instale a Lia</b><small>Abre como app, direto da tela inicial</small></span><button class="pill" data-yes>Instalar</button>`,
+    async b => { e.prompt(); await e.userChoice; b.remove(); });
+});
+// iPhone/iPad: Safari não tem prompt, então explicamos o caminho
+if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !standalone)
+  setTimeout(() => installBanner(`<span class="t"><b>Instale a Lia no iPhone</b><small>Toque em ${'<svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px;vertical-align:-3px"><path d="M12 3v12M8 7l4-4 4 4M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>'} Compartilhar e depois em “Adicionar à Tela de Início”</small></span>`), 2500);
+</script>
+</body>
+</html>
