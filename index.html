@@ -227,6 +227,11 @@ dialog::backdrop{background:#1d1a1788}
 .visits time{flex:none;width:72px;color:var(--ink-2)}
 .tag{flex:none;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-tint);border-radius:6px;padding:1px 6px;align-self:flex-start}
 /* dados do Google */
+#mapcard .mg:empty{display:none}
+#mapcard .mg{display:flex;gap:12px;align-items:center;margin:2px 8px 10px 0}
+#mapcard .mg img{flex:none;width:64px;height:64px;border-radius:12px;object-fit:cover;background:var(--track)}
+#mapcard .mg p{margin:0;font-size:14px;line-height:1.35}#mapcard .mg .sub{font-size:13px}
+#mapcard .mg .gattr{text-align:left;margin-top:2px;font-size:10px}
 .gphoto{margin:14px 0 0;border-radius:16px;overflow:hidden;background:var(--track);aspect-ratio:16/9;position:relative}
 .gphoto img{width:100%;height:100%;object-fit:cover;display:block}
 .gphoto figcaption{position:absolute;right:8px;bottom:6px;font-size:11px;color:#fff;text-shadow:0 1px 3px #0008}.gphoto figcaption a{color:#fff}
@@ -740,7 +745,8 @@ function drawMap() {
     ring = new maplibregl.Marker({ element: el('<span class="ring"></span>') }).setLngLat([p.lon, p.lat]).addTo(map);
     card.hidden = false;
     card.innerHTML = `<div class="ph"><button class="open-sheet" data-a="open" aria-label="Abrir ficha de ${esc(p.name)}">${placeHead(p)}</button>
-      <button class="iconbtn" data-a="share" aria-label="Compartilhar">${icon('share')}</button><button class="iconbtn" data-m="close" aria-label="Fechar">${icon('x')}</button></div>${actionCells(p)}`;
+      <button class="iconbtn" data-a="share" aria-label="Compartilhar">${icon('share')}</button><button class="iconbtn" data-m="close" aria-label="Fechar">${icon('x')}</button></div><div class="mg" data-id="${esc(p.id)}"></div>${actionCells(p)}`;
+    mapGoogle(p);
     card.onclick = e => {
       if (e.target.closest('[data-m="close"]')) return hide();
       const a = e.target.closest('[data-a]')?.dataset.a;
@@ -1197,6 +1203,25 @@ async function googleBox(p) {
   const ph = d.photos?.[0], who = ph?.authorAttributions?.[0];
   box.innerHTML = `${ph ? `<figure class="gphoto"><img src="${esc(googlePhoto(ph))}" alt="Foto de ${esc(f.name)}" loading="lazy">${who ? `<figcaption>Foto: <a href="${esc(who.uri || '#')}" target="_blank" rel="noopener">${esc(who.displayName)}</a></figcaption>` : ''}</figure>` : ''}
     <div class="box"><ul class="info" style="list-style:none;margin:0;padding:0">${rows.join('')}</ul><p class="gattr">Dados do Google Maps</p></div>`;
+}
+
+// resumo do Google em uma linha: aberto/fechado com o horário de hoje, preço e nota
+function gSummary(d) {
+  const days = d.regularOpeningHours?.weekdayDescriptions, today = (new Date().getDay() + 6) % 7;
+  const closed = d.businessStatus === 'CLOSED_PERMANENTLY' ? 'Fechou de vez' : d.businessStatus === 'CLOSED_TEMPORARILY' ? 'Fechado temporariamente' : '';
+  const open = d.currentOpeningHours?.openNow, todayTxt = days ? (days[today] || '').replace(/^[^:]+:\s*/, '') : '';
+  return { closed, open, hasHours: !!days?.length, todayTxt, price: priceText(d), rating: d.rating ? String(d.rating).replace('.', ',') : '', count: d.userRatingCount || 0 };
+}
+// cartão do mapa: foto pequena e uma linha com horário, preço e nota (mesma consulta da ficha, guardada na sessão)
+async function mapGoogle(p) {
+  if (!googleOn()) return;
+  let d; try { d = await googlePlace(full(p)); } catch { return; }
+  const box = document.querySelector(`#mapcard .mg[data-id="${CSS.escape(p.id)}"]`); if (!box || !d) return;
+  const g = gSummary(d), ph = d.photos?.[0];
+  const status = g.closed ? `<b class="st-closed">${g.closed}</b>` : g.hasHours ? `<b class="${g.open ? 'st-open' : 'st-closed'}">${g.open ? 'Aberto' : 'Fechado'}</b> · hoje ${esc(g.todayTxt)}` : '';
+  const meta = [g.price, g.rating && `${g.rating} no Google`].filter(Boolean).join(' · ');
+  if (!status && !meta && !ph) return;
+  box.innerHTML = `${ph ? `<img src="${esc(googlePhoto(ph, 240))}" alt="" loading="lazy">` : ''}<div>${status ? `<p>${status}</p>` : ''}${meta ? `<p class="sub">${esc(meta)}</p>` : ''}<p class="gattr">Google Maps</p></div>`;
 }
 
 // ficha do lugar: amigos que já foram
@@ -1674,7 +1699,7 @@ $('#me').addEventListener('click', profileSheet);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // A página sabe a própria versão (BUILD é carimbado pelo publicar.sh) e compara com a publicada (version.json).
 // Se estiver atrás, recarrega: ao abrir, ao voltar para a tela e a cada 30 min, desde que nenhuma ficha esteja aberta.
-const BUILD = '20261123013400';
+const BUILD = '20261123013901';
 const publishedVersion = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j?.v ?? null).catch(() => null);
 async function checkUpdate() {
   const v = await publishedVersion();
