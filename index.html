@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#F6EEDF">
 <title>Lia</title>
+<link rel="preconnect" href="https://places.googleapis.com" crossorigin>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -164,6 +165,7 @@ main.v-mapa{overflow:hidden;position:relative;padding-bottom:0}
 .info svg{width:20px;height:20px;color:var(--ink-2);margin-top:1px}
 .info a{color:var(--ink);text-decoration:none;overflow-wrap:anywhere}
 .info details summary{list-style:none;cursor:pointer}
+.info li>span,.info li>a,.info details{font-size:15px;line-height:1.4}
 .info details summary::-webkit-details-marker{display:none}
 .week{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;margin-top:8px;color:var(--ink-2);font-size:14px}
 .week .today{color:var(--ink);font-weight:650}
@@ -226,8 +228,27 @@ dialog::backdrop{background:#1d1a1788}
 .visits li:first-child{border-top:0}
 .visits time{flex:none;width:72px;color:var(--ink-2)}
 .tag{flex:none;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-tint);border-radius:6px;padding:1px 6px;align-self:flex-start}
+/* ficha nova (proposta) */
+.cover{margin:-20px -20px 14px;height:210px;position:relative;background:var(--track);border-radius:24px 24px 0 0;overflow:hidden}
+.cover:empty{background:linear-gradient(90deg,var(--track),var(--surface),var(--track));background-size:200% 100%;animation:skel 1.2s ease-in-out infinite alternate}
+.cover img{width:100%;height:100%;object-fit:cover;display:block}
+.cover span{position:absolute;right:10px;bottom:8px;font-size:11px;color:#fff;text-shadow:0 1px 3px #000a}
+.ph2{position:relative;padding-right:44px}
+.ph2 h2{font-family:'EB Garamond',Georgia,serif;font-size:30px;line-height:1.1;font-weight:500;text-wrap:balance}
+.pmeta{margin:6px 0 0;color:var(--ink-2);font-size:15px}
+.gstat{margin:4px 0 0;font-size:15px;color:var(--ink-2)}.gstat:empty{display:none}
+.hshare.top{position:absolute;right:0;top:0}
+.hero{display:flex;align-items:center;gap:16px;margin:18px 0 2px;padding:14px 16px;background:var(--surface);border-radius:18px}
+.hero .big{font-family:'EB Garamond',Georgia,serif;font-size:64px;line-height:.9;font-weight:500}
+.hpos{flex:1;display:grid;gap:2px}.hpos b{font-size:19px}.hpos span{color:var(--ink-2);font-size:14px}
+.cline{margin:18px 2px 0;font-size:14px;color:var(--ink-2)}.cline b{color:var(--ink)}
+.duo{display:flex;gap:8px;margin-top:16px}.duo .btn{flex:1;min-height:46px;font-size:15px}
 /* dados do Google */
 #mapcard .mg:empty{display:none}
+.skel{display:block;height:12px;border-radius:6px;background:var(--track);margin:6px 0;width:180px;animation:skel 1.2s ease-in-out infinite alternate}
+.skel.short{width:120px}.skel.sq{flex:none;width:64px;height:64px;border-radius:12px;margin:0}
+@keyframes skel{from{opacity:.55}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.skel{animation:none}}
 .gnone{font-size:13px;margin:10px 2px 0}#mapcard .gnone{margin:0}
 #mapcard .mg{display:flex;gap:12px;align-items:center;margin:2px 8px 10px 0}
 #mapcard .mg img{flex:none;width:64px;height:64px;border-radius:12px;object-fit:cover;background:var(--track)}
@@ -536,7 +557,7 @@ const visits = r => r.visits || [{ date: r.date, note: r.note || '' }];
 const fmtDay = d => new Date(d).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
 const byId = id => allPlaces().find(p => p.id === id) || db.ranked.find(r => r.id === id);
 
-const ICON = { check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>', bookmark: '<path d="M6 4h12v17l-6-4-6 4z"/>',
+const ICON = { tag: '<path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1 1 0 0 1 0 1.4l-7.2 7.2a1 1 0 0 1-1.4 0z"/><circle cx="8" cy="8" r="1.4"/>', check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>', bookmark: '<path d="M6 4h12v17l-6-4-6 4z"/>',
   undo: '<path d="M9 5L4 10l5 5M4 10h10a5 5 0 0 1 0 10h-3"/>',
   locate: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/>',
   fit: '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>',
@@ -746,7 +767,7 @@ function drawMap() {
     ring = new maplibregl.Marker({ element: el('<span class="ring"></span>') }).setLngLat([p.lon, p.lat]).addTo(map);
     card.hidden = false;
     card.innerHTML = `<div class="ph"><button class="open-sheet" data-a="open" aria-label="Abrir ficha de ${esc(p.name)}">${placeHead(p)}</button>
-      <button class="iconbtn" data-a="share" aria-label="Compartilhar">${icon('share')}</button><button class="iconbtn" data-m="close" aria-label="Fechar">${icon('x')}</button></div><div class="mg" data-id="${esc(p.id)}"></div>${actionCells(p)}`;
+      <button class="iconbtn" data-a="share" aria-label="Compartilhar">${icon('share')}</button><button class="iconbtn" data-m="close" aria-label="Fechar">${icon('x')}</button></div><div class="mg" data-id="${esc(p.id)}">${googleOn() ? '<span class="skel sq"></span><div><span class="skel"></span><span class="skel short"></span></div>' : ''}</div>${actionCells(p)}`;
     mapGoogle(p);
     card.onclick = e => {
       if (e.target.closest('[data-m="close"]')) return hide();
@@ -856,7 +877,55 @@ function infoList(p) {
   return rows.length ? `<div class="box"><ul class="info" style="list-style:none;margin:0;padding:0">${rows.join('')}</ul></div>` : '';
 }
 
+const PROPOSTA = new URLSearchParams(location.search).has('proposta');
+// ficha nova (em aprovação): sua nota em destaque, foto do Google como capa, suas visitas antes dos dados do lugar
+function placeSheet2(p) {
+  const r = db.ranked.find(x => x.id === p.id), f = full(p);
+  const own = r ? visits(r).flatMap(v => v.photos || []).length : 0;
+  let hero = '', mid = '';
+  if (r) {
+    r.visits = visits(r);
+    const mine = rankedIn(r.cat), sc = scores(mine)[r.id], pos = mine.findIndex(x => x.id === r.id) + 1, tr = trend(r);
+    const vs = r.visits.map((v, i) => ({ v, i })).sort((a, b) => b.v.date - a.v.date);
+    hero = `<div class="hero"><span class="big cond z-${zone(sc)}">${sc}</span><div class="hpos"><b>${pos}º de ${mine.length}</b><span>no seu ranking de ${CATS[r.cat].toLowerCase()}</span>${tr ? `<span class="trend ${tr.up ? 'up' : 'down'}">${tr.up ? '↑ subiu' : '↓ caiu'} de ${tr.from} para ${tr.to}</span>` : ''}</div>
+      <button class="iconbtn hshare" data-a="story" aria-label="Compartilhar">${icon('share')}</button></div>`;
+    mid = `${galleryHTML(r)}
+      <div class="box"><h3>Suas visitas · ${vs.length}</h3><ol class="visits">${vs.map(({ v, i }) => `<li><button data-a="editvisit" data-vi="${i}" aria-label="Editar visita de ${fmtDay(v.date)}"><time>${fmtDay(v.date)}</time>${v.nota != null ? `<span class="vn cond z-${zone(v.nota)}">${v.nota}</span>` : ''}<span class="vt">${[withText(v.with), (v.tags || []).join(', '), esc(v.note)].filter(Boolean).join(' · ') || '<span style="color:var(--ink-2)">sem anotação</span>'}${v.photos?.length ? ` · ${v.photos.length} foto${v.photos.length > 1 ? 's' : ''}` : ''}</span>${icon('edit')}</button></li>`).join('')}</ol></div>`;
+  }
+  const sim = similarPlaces(p), inLists = db.lists.filter(l => l.items.includes(p.id)).length, pl = planFor(p.id);
+  const vals = Object.values(allScores()), C = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 7;
+  const myScore = r ? scores(rankedIn(r.cat))[r.id] : null, c = community(myScore == null ? [] : [{ user: 'eu', score: myScore, date: visits(r).at(-1).date }], C);
+  const comm = c.score != null ? communityBox(r || p, myScore) : `<p class="cline"><b>Nota de Curitiba</b> aparece com ${c.count + c.need} avaliações${c.count ? ` · ${c.count} até agora` : ''}</p>`;
+  sheet(`<div class="cover" data-id="${esc(p.id)}" ${own ? 'hidden' : ''}></div>
+    <div class="ph2"><h2>${esc(f.name)}${loveMark(p)}</h2><p class="pmeta">${esc([cuisines(f.cuisine).join(', ') || CATS[f.cat], f.bairro].filter(Boolean).join(' · '))}</p><p class="gstat" data-id="${esc(p.id)}"></p>
+      ${r ? '' : `<button class="iconbtn hshare top" data-a="share" aria-label="Compartilhar">${icon('share')}</button>`}</div>
+    ${hero}${actionCells(p)}${mid}
+    <div class="fat" data-id="${esc(p.id)}"></div>
+    <div class="ginfo" data-id="${esc(p.id)}">${infoList(p)}</div>
+    ${comm}
+    <div class="duo">${r ? '' : `<button class="btn secondary" data-a="plan">${icon('cal')}${pl ? esc(planText(pl)) : 'Marcar ida'}</button>`}<button class="btn secondary" data-a="addlist">${icon('plus')}${inLists ? `Em ${inLists} lista${inLists > 1 ? 's' : ''}` : 'Lista'}</button></div>
+    ${sim.length ? `<div class="box"><h3>Parecidos</h3><ol class="simil">${sim.map(x => `<li><button data-a="similar" data-id="${x.id}">${rowBody(x)}${db.ranked.some(y => y.id === x.id) ? pts(allScores()[x.id]) : ''}</button></li>`).join('')}</ol></div>` : ''}
+    <div class="actions"><button class="btn quiet" data-a="report">Informar erro nos dados</button>${r ? '<button class="btn quiet danger" data-a="remove">Tirar do ranking</button>' : ''}</div>`, e => {
+    const fr = e.target.closest('[data-friend]'); if (fr) return friendSheet(fr.dataset.friend);
+    const b = e.target.closest('[data-a]'); if (!b) return;
+    const a = b.dataset.a;
+    if (b.dataset.view != null) return openViewer(visits(r).flatMap(v => v.photos || []).reverse(), +b.dataset.view);
+    if (a === 'editvisit') return editVisit(p, r, +b.dataset.vi);
+    if (a === 'similar') return placeSheet(byId(b.dataset.id));
+    if (a === 'addlist') return listPicker(p);
+    if (a === 'plan') return planSheet(p);
+    if (a === 'report') return reportSheet(p);
+    if (a === 'story') return shareStory(r, b);
+    if (a === 'remove') { b.textContent = 'Confirmar: tirar do ranking'; b.dataset.a = 'remove2'; }
+    else if (a === 'remove2') { deletePhotos(visits(r).flatMap(v => v.photos || [])).catch(() => {}); db.ranked = db.ranked.filter(x => x.id !== p.id); persist(); dlg.close(); }
+    else placeAction(a, p, () => placeSheet(p));
+  });
+  friendsAtBox(p);
+  googleBox(p);
+}
+
 function placeSheet(p) {
+  if (PROPOSTA) return placeSheet2(p);
   const r = db.ranked.find(x => x.id === p.id);
   let body = '';
   if (r) {
@@ -1201,8 +1270,16 @@ async function googleBox(p) {
   if (site) rows.push(`<li>${icon('globe')}<a href="${esc(site)}" target="_blank" rel="noopener">${esc(site.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '').slice(0, 40))}</a></li>`);
   if (f.insta) rows.push(`<li>${icon('globe')}<a href="https://instagram.com/${esc(f.insta.replace(/^.*instagram\.com\//, '').replace(/^@/, ''))}" target="_blank" rel="noopener">@${esc(f.insta.replace(/^.*instagram\.com\//, '').replace(/^@/, '').replace(/\/$/, ''))}</a></li>`);
   const price = priceText(d), rating = d.rating ? `${String(d.rating).replace('.', ',')} no Google${d.userRatingCount ? ` (${d.userRatingCount.toLocaleString('pt-BR')})` : ''}` : '';
-  if (price || rating) rows.push(`<li><span class="gicon cond">$</span><span>${esc([price, rating].filter(Boolean).join(' · '))}</span></li>`);
+  if (price || rating) rows.push(`<li>${icon('tag')}<span>${esc([price, rating].filter(Boolean).join(' · '))}</span></li>`);
   const ph = d.photos?.[0], who = ph?.authorAttributions?.[0];
+  if (PROPOSTA) {
+    const cov = dlg.querySelector(`.cover[data-id="${CSS.escape(p.id)}"]`), st = dlg.querySelector(`.gstat[data-id="${CSS.escape(p.id)}"]`), g = gSummary(d);
+    if (cov && !cov.hidden && ph) cov.innerHTML = `<img src="${esc(googlePhoto(ph, 1000))}" alt="Foto de ${esc(f.name)}">${who ? `<span>Foto: ${esc(who.displayName)} · Google Maps</span>` : ''}`;
+    else if (cov) cov.hidden = true;
+    if (st) st.innerHTML = g.closed ? `<b class="st-closed">${g.closed}</b>` : g.hasHours ? `<b class="${g.open ? 'st-open' : 'st-closed'}">${g.open ? 'Aberto agora' : 'Fechado agora'}</b> · hoje ${esc(g.todayTxt)}` : '';
+    box.innerHTML = `<div class="box"><ul class="info" style="list-style:none;margin:0;padding:0">${rows.join('')}</ul><p class="gattr">Dados do Google Maps</p></div>`;
+    return;
+  }
   box.innerHTML = `${ph ? `<figure class="gphoto"><img src="${esc(googlePhoto(ph))}" alt="Foto de ${esc(f.name)}" loading="lazy">${who ? `<figcaption>Foto: <a href="${esc(who.uri || '#')}" target="_blank" rel="noopener">${esc(who.displayName)}</a></figcaption>` : ''}</figure>` : ''}
     <div class="box"><ul class="info" style="list-style:none;margin:0;padding:0">${rows.join('')}</ul><p class="gattr">Dados do Google Maps</p></div>`;
 }
@@ -1217,13 +1294,14 @@ function gSummary(d) {
 // cartão do mapa: foto pequena e uma linha com horário, preço e nota (mesma consulta da ficha, guardada na sessão)
 async function mapGoogle(p) {
   if (!googleOn()) return;
-  let d; try { d = await googlePlace(full(p)); } catch { return; }
+  let d; try { d = await googlePlace(full(p)); } catch { d = undefined; }
   const box = document.querySelector(`#mapcard .mg[data-id="${CSS.escape(p.id)}"]`); if (!box) return;
+  if (d === undefined) { box.innerHTML = ''; return; }   // sem internet ou cota do dia esgotada
   if (!d) { box.innerHTML = '<p class="sub gnone">O Google não tem este lugar. Ele pode ter fechado ou mudado de nome.</p>'; return; }
   const g = gSummary(d), ph = d.photos?.[0];
   const status = g.closed ? `<b class="st-closed">${g.closed}</b>` : g.hasHours ? `<b class="${g.open ? 'st-open' : 'st-closed'}">${g.open ? 'Aberto' : 'Fechado'}</b> · hoje ${esc(g.todayTxt)}` : '';
   const meta = [g.price, g.rating && `${g.rating} no Google`].filter(Boolean).join(' · ');
-  if (!status && !meta && !ph) return;
+  if (!status && !meta && !ph) { box.innerHTML = ''; return; }
   box.innerHTML = `${ph ? `<img src="${esc(googlePhoto(ph, 240))}" alt="" loading="lazy">` : ''}<div>${status ? `<p>${status}</p>` : ''}${meta ? `<p class="sub">${esc(meta)}</p>` : ''}<p class="gattr">Google Maps</p></div>`;
 }
 
@@ -1702,7 +1780,7 @@ $('#me').addEventListener('click', profileSheet);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // A página sabe a própria versão (BUILD é carimbado pelo publicar.sh) e compara com a publicada (version.json).
 // Se estiver atrás, recarrega: ao abrir, ao voltar para a tela e a cada 30 min, desde que nenhuma ficha esteja aberta.
-const BUILD = '20261123014514';
+const BUILD = '20261123014637';
 const publishedVersion = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j?.v ?? null).catch(() => null);
 async function checkUpdate() {
   const v = await publishedVersion();

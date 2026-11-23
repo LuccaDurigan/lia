@@ -9,12 +9,12 @@ const misses = new Set();
 const details = new Map();
 const km = (a, b, c, d) => { const r = Math.PI / 180, x = (d - b) * r * Math.cos((a + c) / 2 * r), y = (c - a) * r; return Math.hypot(x, y) * 6371; };
 
-async function findId(p) {
-  if (ids[p.id]) return ids[p.id];
-  if (misses.has(p.id)) return null;
+const FIELDS = 'id,regularOpeningHours,currentOpeningHours.openNow,nationalPhoneNumber,websiteUri,priceLevel,priceRange,rating,userRatingCount,photos,googleMapsUri,businessStatus';
+// primeira vez: a própria busca já traz os detalhes (uma ida ao Google em vez de duas); depois, só os detalhes pelo id guardado
+async function search(p) {
   const res = await fetch(`${BASE}/places:searchText`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': GOOGLE_KEY, 'X-Goog-FieldMask': 'places.id,places.location' },   // só id e local: consulta mais barata
+    headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': GOOGLE_KEY, 'X-Goog-FieldMask': FIELDS.split(',').map(f => 'places.' + f).join(',') + ',places.location' },
     body: JSON.stringify({ textQuery: `${p.name}, Curitiba`, languageCode: 'pt-BR', regionCode: 'BR', maxResultCount: 3,
       locationBias: { circle: { center: { latitude: p.lat, longitude: p.lon }, radius: 400 } } }),
   });
@@ -23,17 +23,23 @@ async function findId(p) {
   if (!hit) { misses.add(p.id); return null; }
   ids[p.id] = hit.id;
   try { localStorage.setItem('lia:gids', JSON.stringify(ids)); } catch {}
-  return hit.id;
+  return hit;
 }
-
-const FIELDS = 'id,regularOpeningHours,currentOpeningHours.openNow,nationalPhoneNumber,websiteUri,priceLevel,priceRange,rating,userRatingCount,photos,googleMapsUri,businessStatus';
-export async function googlePlace(p) {
-  if (!googleOn() || !p?.name) return null;
-  if (details.has(p.id)) return details.get(p.id);
-  const id = await findId(p); if (!id) { details.set(p.id, null); return null; }
-  const res = await fetch(`${BASE}/places/${id}?languageCode=pt-BR&regionCode=BR`, { headers: { 'X-Goog-Api-Key': GOOGLE_KEY, 'X-Goog-FieldMask': FIELDS } });
-  if (!res.ok) throw new Error('google ' + res.status);
-  const d = await res.json(); details.set(p.id, d); return d;
+const pending = new Map();   // mapa e ficha pedindo o mesmo lugar ao mesmo tempo: uma consulta só
+export function googlePlace(p) {
+  if (!googleOn() || !p?.name) return Promise.resolve(null);
+  if (details.has(p.id)) return Promise.resolve(details.get(p.id));
+  if (misses.has(p.id)) return Promise.resolve(null);
+  if (!pending.has(p.id)) pending.set(p.id, (async () => {
+    let d;
+    if (ids[p.id]) {
+      const res = await fetch(`${BASE}/places/${ids[p.id]}?languageCode=pt-BR&regionCode=BR`, { headers: { 'X-Goog-Api-Key': GOOGLE_KEY, 'X-Goog-FieldMask': FIELDS } });
+      if (!res.ok) throw new Error('google ' + res.status);
+      d = await res.json();
+    } else d = await search(p);
+    details.set(p.id, d); return d;
+  })().finally(() => pending.delete(p.id)));
+  return pending.get(p.id);
 }
 export const googlePhoto = (ph, w = 900) => `${BASE}/${ph.name}/media?maxWidthPx=${w}&key=${GOOGLE_KEY}`;
 export const PRICE = { PRICE_LEVEL_INEXPENSIVE: '$', PRICE_LEVEL_MODERATE: '$$', PRICE_LEVEL_EXPENSIVE: '$$$', PRICE_LEVEL_VERY_EXPENSIVE: '$$$$' };
