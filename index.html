@@ -238,7 +238,8 @@ nav .dest button.dot::after{top:8px;right:calc(50% - 18px);box-shadow:0 0 0 2px 
 .privrow:first-of-type{border-top:0}
 .privrow select{font:inherit;font-size:14px;color:var(--accent);background:transparent;border:0;text-align:right;max-width:55%}
 .pp.big{width:58px;height:58px;font-size:30px}
-.prof .btn.sm{align-self:center}
+.fhead{display:flex;align-items:center;gap:16px;margin:14px 0 6px;font-size:15px;color:var(--ink-2)}.fhead b{font-size:19px;color:var(--ink);margin-right:2px}.fhead .btn{margin-left:auto}
+dialog .group{margin-top:22px}
 .req-box{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.req-box p{flex:1 1 100%;margin:0 0 4px}
 .lock{margin-top:16px;padding:14px;border-radius:12px;background:var(--surface)}
 .fat-list{display:flex;flex-wrap:wrap;gap:8px}
@@ -1141,7 +1142,8 @@ async function friendSheet(id) {
   }).join('');
   const want = (v.want || []).map(byId).filter(Boolean);
   const locked = what => `<p class="sub lock">${what} de @${esc(u.username)} ${v.follow === 'accepted' ? 'não estão abertos.' : 'aparecem quando ela aceitar seu pedido.'}</p>`;
-  sheet(`<div class="prof">${uAvatar(u).replace('class="pp', 'class="pp big')}<div style="flex:1"><h2>${esc(uName(u))}</h2><p class="sub">@${esc(u.username)} · ${v.followers} seguidores · ${v.following} seguindo</p></div>${followBtn}</div>
+  sheet(`<div class="prof">${uAvatar(u).replace('class="pp', 'class="pp big')}<div style="flex:1;min-width:0"><h2>${esc(uName(u))}</h2><p class="sub">@${esc(u.username)}</p></div></div>
+    <div class="fhead"><span><b class="cond">${v.followers}</b> seguidores</span><span><b class="cond">${v.following}</b> seguindo</span>${followBtn}</div>
     ${v.follows_me === 'pending' ? `<div class="box req-box"><p><b>${esc(u.first_name || '@' + u.username)}</b> quer seguir você.</p><button class="btn primary sm" data-f="accept">Aceitar</button><button class="btn quiet sm" data-f="reject">Recusar</button></div>` : ''}
     ${can.ranking ? (lists || '<p class="sub" style="margin-top:14px">Ainda não ranqueou nenhum lugar.</p>') : locked('O ranking e as notas')}
     ${can.want ? (want.length ? `<h3 class="group" style="padding:0">Quer ir · ${want.length}</h3><ol class="table">${want.map(p => `<li><button class="row" data-fplace="${esc(p.id)}">${rowBody(p)}</button></li>`).join('')}</ol>` : '') : ''}`, async e => {
@@ -1636,7 +1638,7 @@ $('#me').addEventListener('click', profileSheet);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // A página sabe a própria versão (BUILD é carimbado pelo publicar.sh) e compara com a publicada (version.json).
 // Se estiver atrás, recarrega: ao abrir, ao voltar para a tela e a cada 30 min, desde que nenhuma ficha esteja aberta.
-const BUILD = '20261123011113';
+const BUILD = '20261123011231';
 const publishedVersion = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j?.v ?? null).catch(() => null);
 async function checkUpdate() {
   const v = await publishedVersion();
