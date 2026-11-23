@@ -105,6 +105,7 @@ h2.group{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppe
 .btn.quiet{color:var(--ink-2);padding:0 8px;font-weight:600}
 .btn.danger{color:var(--heart)}
 .btn.wide{width:100%}
+.btn[hidden]{display:none}
 .pill{flex:none;min-height:40px;padding:0 16px;border-radius:999px;background:var(--ink);color:#fff;font-weight:700;font-size:14px}
 .iconbtn{flex:none;width:44px;height:44px;display:grid;place-items:center;border-radius:50%;color:var(--ink-2)}
 .iconbtn[aria-pressed=true]{color:var(--accent)}
@@ -549,6 +550,29 @@ function calendarHTML(items, sc) {
     <div class="calw">${['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map(w => `<span>${w}</span>`).join('')}</div><div class="calg">${cells.join('')}</div></div>`;
 }
 
+// Quero ir: com texto na busca, mostra lugares para salvar; sem texto, a sua lista (idas marcadas primeiro)
+let queroQuery = '';
+function queroList() {
+  const q = norm(queroQuery.trim());
+  if (places && q.length >= 2) {
+    const hit = allPlaces().filter(p => p.cat === cat && norm(`${p.name} ${p.cuisine} ${cuisines(p.cuisine).join(' ')} ${p.bairro}`).includes(q))
+      .sort((a, b) => norm(b.name).startsWith(q) - norm(a.name).startsWith(q)).slice(0, 40);
+    return hit.length ? `<ol class="table" style="margin-top:6px">${hit.map(p => `<li class="row"><button class="row-main" data-open="${p.id}">${rowBody(p)}</button>
+      <button class="iconbtn" data-want="${p.id}" aria-pressed="${db.want.includes(p.id)}" aria-label="Quero ir: ${esc(p.name)}">${icon('bookmark', db.want.includes(p.id))}</button></li>`).join('')}</ol>`
+      : `<p class="msg">Nenhum lugar com “${esc(queroQuery.trim())}”.</p>`;
+  }
+    const want = allPlaces().filter(p => db.want.includes(p.id) && p.cat === cat);
+    if (!want.length) return `<div class="wrap empty" style="padding-top:8px"><h2>Nenhum lugar salvo em ${CATS[cat].toLowerCase()}</h2>
+      <p>Busque acima, ou toque em "Quero ir" na busca e no mapa, para guardar aqui e não esquecer.</p></div>`;
+    const list = filterNear(want, queroOpen), planOf = p => planFor(p.id);
+    const sorted = [...list.filter(planOf).sort((a, b) => planOf(a).date - planOf(b).date), ...list.filter(p => !planOf(p))];
+    return `<div class="chips filt"><button class="chip" data-qf="open" aria-pressed="${queroOpen}">Aberto agora</button><button class="chip" data-qf="near" aria-pressed="${!!nearOn}">Perto de mim</button></div>
+      ${sorted.length ? `<div class="wrap" style="padding:6px 0 0"><ol class="table">${sorted.map(p => { const pl = planOf(p);
+        return `<li class="row"><button class="row-main" data-open="${p.id}">${rowBody(p, pl ? `<span class="plan-when">${esc(planText(pl))}</span>` : placeSub(p))}</button>
+        <button class="iconbtn${pl ? ' on' : ''}" data-plan="${p.id}" aria-label="${pl ? 'Editar ida marcada' : 'Marcar ida'}">${icon('cal')}</button><button class="pill" data-rank="${p.id}">Já fui</button></li>`; }).join('')}</ol></div>`
+        : `<p class="msg">Nenhum lugar salvo aberto agora.</p>`}`;
+}
+
 const views = {
   tabela() {
     const mine = rankedIn(cat), sc = scores(mine);
@@ -565,17 +589,8 @@ const views = {
       <p class="legend"><span><i class="z-win"></i>7 a 10</span><span><i class="z-mid"></i>4 a 6</span><span><i class="z-low"></i>1 a 3</span></p></div>`;
   },
   quero() {
-    const want = allPlaces().filter(p => db.want.includes(p.id) && p.cat === cat);
-    if (!want.length) return `<div class="wrap empty"><h2>Nenhum lugar salvo em ${CATS[cat].toLowerCase()}</h2>
-      <p>Na busca ou no mapa, toque no marcador de um lugar para guardar aqui e não esquecer.</p>
-      <button class="btn primary" data-tab="buscar">${icon('search')}Buscar lugares</button></div>`;
-    const list = filterNear(want, queroOpen), planOf = p => planFor(p.id);
-    const sorted = [...list.filter(planOf).sort((a, b) => planOf(a).date - planOf(b).date), ...list.filter(p => !planOf(p))];
-    return `<div class="chips filt"><button class="chip" data-qf="open" aria-pressed="${queroOpen}">Aberto agora</button><button class="chip" data-qf="near" aria-pressed="${!!nearOn}">Perto de mim</button></div>
-      ${sorted.length ? `<div class="wrap" style="padding:6px 0 0"><ol class="table">${sorted.map(p => { const pl = planOf(p);
-        return `<li class="row"><button class="row-main" data-open="${p.id}">${rowBody(p, pl ? `<span class="plan-when">${esc(planText(pl))}</span>` : placeSub(p))}</button>
-        <button class="iconbtn${pl ? ' on' : ''}" data-plan="${p.id}" aria-label="${pl ? 'Editar ida marcada' : 'Marcar ida'}">${icon('cal')}</button><button class="pill" data-rank="${p.id}">Já fui</button></li>`; }).join('')}</ol></div>`
-        : `<p class="msg">Nenhum lugar salvo aberto agora.</p>`}`;
+    return `<div class="band"><div class="wrap"><label class="field">${icon('search')}<input id="qq" type="search" enterkeyhint="search" autocomplete="off" placeholder="Buscar lugar para salvar" aria-label="Buscar lugar para salvar" value="${esc(queroQuery)}"></label></div></div>
+      <div id="qres">${queroList()}</div>`;
   },
   buscar() {
     return `<div class="band"><div class="wrap"><label class="field">${icon('search')}<input id="q" type="search" enterkeyhint="search" autocomplete="off" placeholder="Nome, culinária ou bairro" aria-label="Buscar lugar" value="${esc(query)}"></label></div></div>
@@ -804,10 +819,10 @@ function planSheet(p, justCreated) {
     <label class="lbl" for="pdate">Quando</label><input class="input" type="datetime-local" id="pdate" value="${localDT(pl.date)}" min="${localDT(Date.now())}">
     <span class="lbl">Com quem?</span><div id="who">${whoPicker(pl.with)}</div>
     <label class="lbl" for="pnote">Anotação</label><textarea id="pnote" rows="2" placeholder="Ex.: reservar mesa, pedir a polenta">${esc(pl.note)}</textarea>
-    <button class="btn primary wide" data-a="save">${ex ? 'Salvar' : 'Marcar'}</button>
+    <button class="btn primary wide" data-a="save" ${ex ? 'hidden' : ''}>${ex ? 'Salvar alterações' : 'Marcar ida'}</button>
     ${ex ? `<div class="cells two"><a class="cell primary" data-a="wa" href="#">${icon('chat')}Convidar no WhatsApp</a><button class="cell" data-a="shareplan">${icon('share')}Compartilhar</button></div>
       <div class="actions"><button class="btn quiet danger" data-a="unplan">Desmarcar ida</button></div>` : ''}`, e => {
-    if (whoClick(e, pl)) return;
+    if (whoClick(e, pl)) return changed();
     const b = e.target.closest('[data-a]'); if (!b) return;
     const a = b.dataset.a, read = () => { const v = dlg.querySelector('#pdate').value; if (v) pl.date = new Date(v).getTime(); pl.note = dlg.querySelector('#pnote').value.trim(); };
     if (a === 'save') {
@@ -820,7 +835,8 @@ function planSheet(p, justCreated) {
     else if (a === 'unplan') { b.textContent = 'Confirmar: desmarcar'; b.dataset.a = 'unplan2'; }
     else if (a === 'unplan2') { db.plans = db.plans.filter(x => x.placeId !== p.id); persist(); dlg.close(); }
   });
-  dlg.oninput = e => whoInput(e, pl);
+  const changed = () => { const sv = dlg.querySelector('[data-a="save"]'); if (sv) sv.hidden = false; };   // mudou algo: mostra "Salvar alterações"
+  dlg.oninput = e => { whoInput(e, pl); if (e.target.id !== 'pq') changed(); };
 }
 // Depois da hora marcada (2h de folga), pergunta uma vez: "Foi?" → nota já com as pessoas; ou remarcar/desmarcar.
 let plansChecked = false;
@@ -1058,7 +1074,7 @@ function communityBox(r, myScore) {
     <div class="hist" role="img" aria-label="Distribuição das notas">${c.hist.map((n, i) => `<i class="${i === mine ? 'on' : ''}" style="height:${(n / max) * 100}%"></i>`).join('')}</div>
     <div class="hist-x"><span>0</span><span>5</span><span>10</span></div></div>`;
 }
-const toggleWant = id => { db.want = db.want.includes(id) ? db.want.filter(i => i !== id) : [...db.want, id]; persist(); };
+const toggleWant = id => { db.want = db.want.includes(id) ? db.want.filter(i => i !== id) : [...db.want, id]; persist(); toast(db.want.includes(id) ? 'Salvo em Quero ir' : 'Tirado do Quero ir'); };
 
 const similarity = (a, b) => {
   const ca = a.cuisine.split(';'), cb = (b.cuisine || '').split(';');
@@ -1258,7 +1274,7 @@ document.addEventListener('click', e => {
   else if (d.pick) { const p = byId(d.pick); db.ranked.some(r => r.id === p.id) ? placeSheet(p) : rankFlow(p); }
   else if (d.rank) rankFlow(byId(d.rank));
   else if (d.open) placeSheet(byId(d.open));
-  else if (d.want) { toggleWant(d.want); $('#results').innerHTML = results(); }
+  else if (d.want) { toggleWant(d.want); if ($('#results')) $('#results').innerHTML = results(); if ($('#qres')) $('#qres').innerHTML = queroList(); }
   else if (d.act === 'add') addPlace();
   else if (d.act === 'retry') { loadError = ''; render(); fetchPlaces(); }
   else if (d.qf === 'open') { queroOpen = !queroOpen; render(); }
@@ -1273,7 +1289,8 @@ document.addEventListener('click', e => {
   else if (d.calday) { calDay = calDay === d.calday ? null : d.calday; render(); }
   else if (d.calclear != null) { calDay = null; render(); }
 });
-$('#view').addEventListener('input', e => { if (e.target.id === 'q') { query = e.target.value; browse = null; $('#results').innerHTML = results(); } });
+$('#view').addEventListener('input', e => { if (e.target.id === 'qq') { queroQuery = e.target.value; $('#qres').innerHTML = queroList(); return; }
+  if (e.target.id === 'q') { query = e.target.value; browse = null; $('#results').innerHTML = results(); } });
 
 render();
 fetchPlaces();
@@ -1299,7 +1316,7 @@ $('#me').addEventListener('click', profileSheet);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // A página sabe a própria versão (BUILD é carimbado pelo publicar.sh) e compara com a publicada (version.json).
 // Se estiver atrás, recarrega: ao abrir, ao voltar para a tela e a cada 30 min, desde que nenhuma ficha esteja aberta.
-const BUILD = '20261122234840';
+const BUILD = '20261122235251';
 const publishedVersion = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j?.v ?? null).catch(() => null);
 async function checkUpdate() {
   const v = await publishedVersion();
