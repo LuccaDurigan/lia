@@ -218,7 +218,10 @@ dialog::backdrop{background:#1d1a1788}
 .hist i{display:block;background:var(--line-2);border-radius:3px 3px 0 0;min-height:2px}
 .hist i.on{background:var(--accent)}
 .hist-x{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-2);margin-top:4px}
-.visits li{display:flex;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:14.5px}
+.visits li{border-top:1px solid var(--line);font-size:14.5px}
+.visits li>button{display:flex;align-items:flex-start;gap:10px;width:100%;padding:10px 0;text-align:left}
+.visits .vt{flex:1;min-width:0}
+.visits li svg{width:16px;height:16px;color:var(--ink-2);flex:none;margin-top:2px}
 .visits li:first-child{border-top:0}
 .visits time{flex:none;width:72px;color:var(--ink-2)}
 .tag{flex:none;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-tint);border-radius:6px;padding:1px 6px;align-self:flex-start}
@@ -405,6 +408,7 @@ const ICON = { search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
   share: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/>',
   pin: '<path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
   heart: '<path d="M12 20s-7.5-4.6-9.2-9.3A4.7 4.7 0 0 1 12 7.2a4.7 4.7 0 0 1 9.2 3.5C19.5 15.4 12 20 12 20z"/>' };
 const icon = (n, fill) => `<svg class="i${fill ? ' fill' : ''}" viewBox="0 0 24 24" aria-hidden="true">${ICON[n]}</svg>`;
 
@@ -637,21 +641,57 @@ function placeSheet(p) {
   const r = db.ranked.find(x => x.id === p.id);
   let body = '';
   if (r) {
-    const mine = rankedIn(r.cat), sc = scores(mine)[r.id], vs = [...visits(r)].sort((a, b) => b.date - a.date);
+    r.visits = visits(r);   // entradas antigas ganham a lista de visitas para poder editar
+    const mine = rankedIn(r.cat), sc = scores(mine)[r.id], vs = r.visits.map((v, i) => ({ v, i })).sort((a, b) => b.v.date - a.v.date);
     body = `<p class="sub" style="margin-top:14px">${mine.findIndex(x => x.id === r.id) + 1}º de ${mine.length} no seu ranking de ${CATS[r.cat].toLowerCase()}</p>
       ${galleryHTML(r)}${communityBox(r, sc)}${infoList(p)}
-      <div class="box"><h3>Suas visitas · ${vs.length}</h3><ol class="visits">${vs.map(v => `<li><time>${fmtDay(v.date)}</time>${v.revisit ? '<span class="tag">voltei</span>' : ''}<span>${[withText(v.with), esc(v.note)].filter(Boolean).join(' · ') || '<span style="color:var(--ink-2)">sem anotação</span>'}</span></li>`).join('')}</ol></div>
+      <div class="box"><h3>Suas visitas · ${vs.length}</h3><ol class="visits">${vs.map(({ v, i }) => `<li><button data-a="editvisit" data-vi="${i}" aria-label="Editar visita de ${fmtDay(v.date)}"><time>${fmtDay(v.date)}</time>${v.revisit ? '<span class="tag">voltei</span>' : ''}<span class="vt">${[withText(v.with), esc(v.note)].filter(Boolean).join(' · ') || '<span style="color:var(--ink-2)">sem anotação</span>'}${v.photos?.length ? ` · ${v.photos.length} foto${v.photos.length > 1 ? 's' : ''}` : ''}</span>${icon('edit')}</button></li>`).join('')}</ol></div>
       <div class="actions"><button class="btn quiet danger" data-a="remove">Tirar do ranking</button></div>`;
   } else body = `${communityBox(p, null)}${infoList(p)}`;
   sheet(`<div class="ph"><div class="t">${placeHead(p)}</div><button class="iconbtn" data-a="share" aria-label="Compartilhar" style="margin-right:34px">${icon('share')}</button></div>${actionCells(p)}${body}`, e => {
     const b = e.target.closest('[data-a]'); if (!b) return;
     const a = b.dataset.a;
     if (b.dataset.view != null) return openViewer(visits(r).flatMap(v => v.photos || []).reverse(), +b.dataset.view);
+    if (a === 'editvisit') return editVisit(p, r, +b.dataset.vi);
     if (a === 'remove') { b.textContent = 'Confirmar: tirar do ranking'; b.dataset.a = 'remove2'; }
     else if (a === 'remove2') { deletePhotos(visits(r).flatMap(v => v.photos || [])).catch(() => {}); db.ranked = db.ranked.filter(x => x.id !== p.id); persist(); dlg.close(); }
     else placeAction(a, p, () => placeSheet(p));
   });
 }
+// Editar uma visita: data, quem foi, fotos e anotação. A nota é do lugar e muda pelo "Voltei aqui".
+const dayValue = d => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };
+const markRevisits = r => { r.visits.sort((a, b) => a.date - b.date).forEach((v, i) => { v.revisit = i > 0; }); r.date = r.visits.at(-1).date; };
+function editVisit(p, r, i) {
+  const v = r.visits[i]; v.with ||= []; v.photos ||= [];
+  pendingShots = 0; shotError = '';
+  const only = r.visits.length === 1;
+  sheet(`<h2>Editar visita</h2><p class="sub">${esc(r.name)}</p>
+    <label class="lbl" for="vdate">Data</label><input class="input" type="date" id="vdate" value="${dayValue(v.date)}" max="${dayValue(Date.now())}">
+    <span class="lbl">Quem foi com você?</span><div id="who">${whoPicker(v.with)}</div>
+    <span class="lbl">Fotos <small class="sub">até ${MAX_PHOTOS}</small></span><div id="shots">${shotsHTML(v)}</div>
+    <input type="file" id="ph-in" accept="image/*" multiple hidden>
+    <label class="lbl" for="note">Anotação</label><textarea id="note" rows="2" placeholder="O que você pediu">${esc(v.note)}</textarea>
+    <button class="btn primary wide" data-a="save">Salvar</button>
+    <div class="actions" style="margin-top:6px"><button class="btn quiet danger" data-a="del">${only ? 'Apagar visita e tirar do ranking' : 'Apagar esta visita'}</button></div>`, e => {
+    if (whoClick(e, v)) return;
+    if (shotsClick(e, v)) return;
+    const b = e.target.closest('[data-a]'); if (!b) return;
+    if (b.dataset.a === 'save') {
+      const d = dlg.querySelector('#vdate').value;
+      if (d) { const [y, m, dd] = d.split('-').map(Number), old = new Date(v.date); v.date = new Date(y, m - 1, dd, old.getHours(), old.getMinutes()).getTime(); }
+      v.note = dlg.querySelector('#note').value.trim();
+      markRevisits(r); persist(); placeSheet(p);
+    } else if (b.dataset.a === 'del') { b.textContent = only ? 'Confirmar: apagar e tirar do ranking' : 'Confirmar: apagar visita'; b.dataset.a = 'del2'; }
+    else if (b.dataset.a === 'del2') {
+      deletePhotos(v.photos).catch(() => {});   // fotos saem do servidor junto
+      if (only) { db.ranked = db.ranked.filter(x => x.id !== r.id); persist(); return dlg.close(); }
+      r.visits.splice(i, 1); markRevisits(r); persist(); placeSheet(p);
+    }
+  });
+  dlg.oninput = e => whoInput(e, v);
+  dlg.onchange = e => { if (e.target.id === 'ph-in') addPhotos(e.target, v); };
+}
+
 // Protótipo sem backend: a "comunidade" é só você. Com o servidor, `ratings` vem de todos os usuários de Curitiba.
 function communityBox(r, myScore) {
   const all = allScores(), vals = Object.values(all), C = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 7;
