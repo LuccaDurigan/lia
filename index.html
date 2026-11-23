@@ -59,6 +59,8 @@ nav .dest button[aria-current=page]{background:#ffffff1f;color:#fff}
 nav .plus{flex:none;width:64px;height:64px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;box-shadow:0 10px 24px -8px #1F3A93aa;pointer-events:auto;transition:transform .2s var(--ease),background .2s}
 nav .plus:active{transform:scale(.93);background:var(--accent-deep)}
 nav .plus svg{width:28px;height:28px;stroke-width:2.6}
+svg.i.hand{stroke-width:2.1}
+nav .plus svg.hand{stroke-width:2.2}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
 
 /* tabela */
@@ -236,12 +238,13 @@ dialog::backdrop{background:#1d1a1788}
 <main id="view"></main>
 <nav aria-label="Principal"><div class="wrap">
   <div class="dest">
-    <button data-tab="tabela"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h2M4 12h2M4 18h2M10 6h10M10 12h10M10 18h10"/></svg>Tabela</button>
-    <button data-tab="quero"><svg class="i" viewBox="0 0 24 24"><path d="M6 4h12v17l-6-4-6 4z"/></svg>Quero ir</button>
-    <button data-tab="mapa"><svg class="i" viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Mapa</button>
-    <button data-tab="atividade"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Atividade</button>
+    <!-- ícones em traço de caneta (estilo A): linhas levemente tortas, como desenhadas à mão -->
+    <button data-tab="tabela"><svg class="i hand" viewBox="0 0 24 24"><path d="M3.2 20.3c5.8-.2 11.8.1 17.6-.1"/><path d="M9.1 20.1c-.1-3.9.1-7.6 0-11.2 2-.1 3.9.1 5.9 0 .1 3.7-.1 7.4.1 11.1"/><path d="M3.4 20.2c-.1-2.1.1-4 0-5.9 1.9 0 3.8.1 5.6 0"/><path d="M15 12.4c1.9.1 3.8-.1 5.7 0 .1 2.6-.1 5.2.1 7.8"/><path d="M11.3 6.2l1-1.6v2.9"/></svg>Ranking</button>
+    <button data-tab="quero"><svg class="i hand" viewBox="0 0 24 24"><path d="M6.6 3.3c3.7.1 7.2-.1 10.8.1.1 5.9-.1 11.8.1 17.6-1.8-1.3-3.7-2.6-5.4-3.9-1.9 1.3-3.7 2.6-5.6 3.9.1-5.9-.1-11.8.1-17.7z"/><path d="M13.9 3.4c.1 1.6-.1 3.1.1 4.6 1.1-.7 2.3-1.4 3.4-2.1"/></svg>Quero ir</button>
+    <button data-tab="mapa"><svg class="i hand" viewBox="0 0 24 24"><path d="M3.1 6.4c2-.8 4-1.5 6-2.2 2 .7 4 1.5 6 2.1 2-.6 4-1.4 5.9-2.1.1 4.6-.1 9.3.1 13.9-2 .8-4 1.5-6 2.2-2-.8-4-1.5-6-2.2-2 .8-4 1.6-6 2.3-.1-4.7.1-9.4 0-14z"/><path d="M9.1 4.3c-.1 4.6.1 9.3 0 13.9M15.1 6.3c-.1 4.6.1 9.2 0 13.8"/></svg>Mapa</button>
+    <button data-tab="atividade"><svg class="i hand" viewBox="0 0 24 24"><path d="M6.2 3.2c4.3.1 8.6-.1 12.8.1.1 5.9-.1 11.8.1 17.6-4.3-.1-8.6.1-12.9-.1-.1-5.8.1-11.7 0-17.6z"/><path d="M4.2 7h3.6M4.2 12h3.6M4.2 17h3.6"/><path d="M10.6 8.1c1.9 0 3.9.1 5.8 0M10.6 11.6c1.4.1 2.9-.1 4.3 0"/></svg>Diário</button>
   </div>
-  <button class="plus" data-tab="buscar"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span class="sr">Ranquear um lugar</span></button>
+  <button class="plus" data-tab="buscar"><svg class="i hand" viewBox="0 0 24 24"><path d="M15.6 4.1l4.3 4.2c-3.9 3.9-7.8 7.8-11.6 11.7l-5.2 1 .9-5.3c3.9-3.8 7.7-7.7 11.6-11.6z"/><path d="M13.4 6.3l4.3 4.3"/></svg><span class="sr">Ranquear um lugar</span></button>
 </div></nav>
 <dialog id="dlg"></dialog>
 
@@ -338,7 +341,7 @@ const views = {
   tabela() {
     const mine = rankedIn(cat), sc = scores(mine);
     if (!mine.length) return `<div class="wrap empty"><ol class="ghost">${[1, 2, 3].map(i => `<li><span class="pos cond">${i}</span>${['Seu lugar favorito', 'O segundo melhor', 'E assim por diante'][i - 1]}</li>`).join('')}</ol>
-      <h2>Sua tabela de ${CATS[cat].toLowerCase()} começa aqui</h2>
+      <h2>Seu ranking de ${CATS[cat].toLowerCase()} começa aqui</h2>
       <p>Escolha um lugar onde você já foi, diga como foi e compare com os outros. A nota sai sozinha.</p>
       <button class="btn primary" data-tab="buscar">${icon('plus')}Ranquear um lugar</button></div>`;
     let prev;
@@ -525,15 +528,15 @@ function placeSheet(p) {
   let body = '';
   if (r) {
     const mine = rankedIn(r.cat), sc = scores(mine)[r.id], vs = [...visits(r)].sort((a, b) => b.date - a.date);
-    body = `<p class="sub" style="margin-top:14px">${mine.findIndex(x => x.id === r.id) + 1}º de ${mine.length} na sua tabela de ${CATS[r.cat].toLowerCase()}</p>
+    body = `<p class="sub" style="margin-top:14px">${mine.findIndex(x => x.id === r.id) + 1}º de ${mine.length} no seu ranking de ${CATS[r.cat].toLowerCase()}</p>
       ${communityBox(r, sc)}${infoList(p)}
       <div class="box"><h3>Suas visitas · ${vs.length}</h3><ol class="visits">${vs.map(v => `<li><time>${fmtDay(v.date)}</time>${v.revisit ? '<span class="tag">voltei</span>' : ''}<span>${esc(v.note) || '<span style="color:var(--ink-2)">sem anotação</span>'}</span></li>`).join('')}</ol></div>
-      <div class="actions"><button class="btn quiet danger" data-a="remove">Tirar da tabela</button></div>`;
+      <div class="actions"><button class="btn quiet danger" data-a="remove">Tirar do ranking</button></div>`;
   } else body = `${communityBox(p, null)}${infoList(p)}`;
   sheet(`<div class="ph"><div class="t">${placeHead(p)}</div><button class="iconbtn" data-a="share" aria-label="Compartilhar" style="margin-right:34px">${icon('share')}</button></div>${actionCells(p)}${body}`, e => {
     const b = e.target.closest('[data-a]'); if (!b) return;
     const a = b.dataset.a;
-    if (a === 'remove') { b.textContent = 'Confirmar: tirar da tabela'; b.dataset.a = 'remove2'; }
+    if (a === 'remove') { b.textContent = 'Confirmar: tirar do ranking'; b.dataset.a = 'remove2'; }
     else if (a === 'remove2') { db.ranked = db.ranked.filter(x => x.id !== p.id); persist(); dlg.close(); }
     else placeAction(a, p, () => placeSheet(p));
   });
@@ -598,7 +601,7 @@ function finish(place, s) {
     <p>${mine.findIndex(x => x.id === place.id) + 1}º de ${mine.length} em ${CATS[place.cat].toLowerCase()}</p></div>
     <button class="btn secondary wide heart" data-love aria-pressed="${entry.loved}">${icon('heart', entry.loved)}Amei, voltaria sempre</button>
     <label class="lbl" for="note">Anotação desta visita</label><textarea id="note" rows="2" placeholder="O que você pediu, com quem foi"></textarea>
-    <button class="btn primary wide" data-ok>Ver na tabela</button>`, e => {
+    <button class="btn primary wide" data-ok>Ver no ranking</button>`, e => {
     const lv = e.target.closest('[data-love]');
     if (lv) { entry.loved = !entry.loved; persist(); lv.setAttribute('aria-pressed', entry.loved); lv.innerHTML = icon('heart', entry.loved) + 'Amei, voltaria sempre'; return; }
     if (!e.target.closest('[data-ok]')) return;
