@@ -155,3 +155,23 @@ export async function sendReport(r) {
   const { error } = await (await client()).from('reports').insert(r);
   if (error) throw error;
 }
+
+// --- sincronização: documento com os dados do app (tabela user_data; só o dono lê e escreve) ---
+export async function currentUserId() { return (await currentUser())?.id ?? null; }
+
+export async function loadUserData() {
+  const user = await currentUser();
+  if (!user) return null;
+  const { data, error } = await (await client()).from('user_data').select('data, updated_at').eq('user_id', user.id).maybeSingle();
+  if (error) throw error;
+  return data;   // { data, updated_at } ou null se ainda não há nada na conta
+}
+
+export async function saveUserData(doc) {
+  const user = await currentUser();
+  if (!user) throw new Error('sem-conta');
+  const { data, error } = await (await client()).from('user_data')
+    .upsert({ user_id: user.id, data: doc, updated_at: new Date().toISOString() }).select('updated_at').single();
+  if (error) throw error;
+  return data.updated_at;
+}

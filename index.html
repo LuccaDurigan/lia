@@ -226,6 +226,9 @@ dialog::backdrop{background:#1d1a1788}
 .visits li:first-child{border-top:0}
 .visits time{flex:none;width:72px;color:var(--ink-2)}
 .tag{flex:none;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-tint);border-radius:6px;padding:1px 6px;align-self:flex-start}
+/* sincronização */
+.syncline{margin-top:10px;font-size:13px;color:var(--win)}.syncline::before{content:'● ';font-size:10px}
+.syncline[data-s=saving]{color:var(--ink-2)}.syncline[data-s=offline]{color:var(--mid)}
 /* idas marcadas */
 .okmsg{margin-top:12px;padding:10px 12px;border-radius:12px;background:#E3EFE6;color:var(--win);font-weight:600;font-size:14.5px}
 .toast{position:fixed;z-index:2600;left:50%;bottom:calc(100px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;font-weight:600;font-size:15px;animation:rise .25s var(--ease);transition:opacity .3s}
@@ -419,22 +422,37 @@ dialog::backdrop{background:#1d1a1788}
 <script type="module">
 import { startSession, current, done, answer, undo, finalValue, scores, community, migrateV1 } from './ranking.mjs';
 import { parseHours, hoursStatus, hoursWeek } from './hours.mjs';
-import { configured, currentUser, myProfile, signOut, onPasswordRecovery, searchProfiles, uploadPhoto, photoUrls, deletePhotos, errorText, sendReport } from './conta.mjs';
+import { configured, currentUser, myProfile, signOut, onPasswordRecovery, searchProfiles, uploadPhoto, photoUrls, deletePhotos, errorText, sendReport, loadUserData, saveUserData } from './conta.mjs';
+import { mergeData } from './sync.mjs';
 import { startOnboarding } from './onboarding.mjs';
 
 const CATS = { RES: 'Restaurantes', CAF: 'Cafés e padarias', BAR: 'Bares' };
 // --- estado (localStorage) ---
 const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
-let db = load('pinhao:v1', { ranked: [], want: [], custom: [] });   // ranked: {id,name,cat,cuisine,bairro,lat,lon,value,loved,visits:[{date,note,revisit}],date}
-const persist = () => save('pinhao:v1', db);
-// v2: notas de 1 a 10 (antes: faixas gostei/ok/não gostei) e pessoas que foram com você
-if (!db.v) { db.ranked = migrateV1(db.ranked); db.v = 2; }
-db.people ||= [];   // {id, name, userId?, username?, used}
-db.favs ||= [];     // até 4 lugares favoritos (ids), mostrados no perfil
-db.lists ||= [];    // {id, name, items: [ids], created}
-db.plans ||= [];    // idas marcadas no Quero ir: {id, placeId, date, with: [], note, created}
-persist();
+// Sincronização: o celular guarda tudo e manda para a conta (user_data) logo depois de cada mudança.
+// syncMeta: de quem são os dados deste aparelho, quando foi a última sincronização e se há mudança ainda não enviada.
+let syncMeta = load('lia:sync', { userId: null, syncedAt: null, dirty: true });
+let syncUser = null, syncState = 'idle', pushTimer = 0;   // syncState: idle | saving | ok | offline
+const saveMeta = () => save('lia:sync', syncMeta);
+const freshDb = () => ({ v: 2, ranked: [], want: [], custom: [], people: [], favs: [], lists: [], plans: [] });
+function fixDb(d) {
+  d ||= freshDb();
+  if (!d.v) { d.ranked = migrateV1(d.ranked || []); d.v = 2; }   // v2: notas de 1 a 10 (antes: faixas gostei/ok/não gostei)
+  d.ranked ||= []; d.want ||= []; d.custom ||= [];
+  d.people ||= [];   // {id, name, userId?, username?, used}
+  d.favs ||= [];     // até 4 lugares favoritos (ids), mostrados no perfil
+  d.lists ||= [];    // {id, name, items: [ids], created}
+  d.plans ||= [];    // idas marcadas no Quero ir: {id, placeId, date, with: [], note, created}
+  return d;
+}
+let db = fixDb(load('pinhao:v1', null));   // ranked: {id,name,cat,cuisine,bairro,lat,lon,value,loved,visits:[...],date}
+function persist() {
+  save('pinhao:v1', db);
+  syncMeta.dirty = true; saveMeta();
+  if (syncUser) { clearTimeout(pushTimer); pushTimer = setTimeout(pushData, 1500); }   // junta várias mudanças seguidas num envio só
+}
+save('pinhao:v1', db);
 // lugares vêm de places.json (cópia do OpenStreetMap publicada junto com o app; o service worker guarda para uso offline)
 let places = null;
 try { localStorage.removeItem('pinhao:places'); localStorage.removeItem('pinhao:places2'); } catch {}   // caches antigos, de quando o app baixava do Overpass
@@ -965,6 +983,7 @@ function profileSheet() {
   const hist = Array(10).fill(0); Object.values(sc).forEach(n => hist[Math.min(10, Math.max(1, n)) - 1]++);
   const max = Math.max(1, ...hist), photo = r => visits(r).flatMap(v => v.photos || []).at(-1);
   sheet(`<div class="prof"><i class="avatar big">${esc((profile?.first_name || '?')[0].toUpperCase())}</i><div><h2>${esc([profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Você')}</h2>${profile ? `<p class="sub">@${esc(profile.username)}</p>` : ''}</div></div>
+    ${syncUser ? `<p class="syncline" data-s="${syncState}">${SYNC_TEXT[syncState] || ''}</p>` : ''}
     <div class="stats"><div><b class="cond">${db.ranked.length}</b><span>lugares</span></div><div><b class="cond">${yearPlaces}</b><span>em ${year}</span></div><div><b class="cond">${vs.length}</b><span>visitas</span></div><div><b class="cond">${bairros}</b><span>bairros</span></div></div>
     <div class="box"><h3>Favoritos</h3><div class="favs">${[0, 1, 2, 3].map(i => favs[i]
       ? `<button class="fav" data-a="openfav" data-id="${favs[i].id}">${photo(favs[i]) ? `<img data-path="${esc(photo(favs[i]))}" alt="">` : `<span class="cond z-${zone(sc[favs[i].id])}">${sc[favs[i].id]}</span>`}<small>${esc(favs[i].name)}</small></button>`
@@ -978,7 +997,7 @@ function profileSheet() {
     if (a === 'openfav') placeSheet(byId(b.dataset.id));
     else if (a === 'editfavs') favPicker();
     else if (a === 'openlist') listSheet(b.dataset.id);
-    else if (a === 'logout') { await signOut().catch(() => {}); dlg.close(); $('#me').hidden = true; profile = null; startOnboarding({ onDone: showAccount }); }
+    else if (a === 'logout') { b.disabled = true; await stopSync(); await signOut().catch(() => {}); dlg.close(); $('#me').hidden = true; profile = null; startOnboarding({ onDone: showAccount }); }
   });
 }
 function favPicker() {
@@ -1297,10 +1316,52 @@ fetchPlaces();
 
 // --- conta: sem sessão, abre o cadastro; com sessão, mostra a inicial no topo ---
 let profile = null;
+// --- sincronização com a conta ---
+async function pushData() {
+  if (!syncUser || syncState === 'saving') return;
+  syncState = 'saving'; syncStatus();
+  try { syncMeta.syncedAt = await saveUserData(db); syncMeta.dirty = false; saveMeta(); syncState = 'ok'; }
+  catch { syncState = 'offline'; }   // fica marcado como pendente; tenta de novo na próxima mudança, ao voltar a internet ou ao abrir
+  syncStatus();
+}
+// Ao entrar (e ao voltar para o app): traz da conta, junta se os dois lados mudaram, e envia o que faltar.
+async function pullData() {
+  if (!syncUser) return;
+  let remote;
+  try { remote = await loadUserData(); } catch { syncState = 'offline'; return syncStatus(); }
+  if (!remote) return pushData();                                   // conta vazia: primeiro envio deste aparelho
+  if (remote.updated_at === syncMeta.syncedAt) return syncMeta.dirty ? pushData() : (syncState = 'ok', syncStatus());
+  const merged = syncMeta.dirty;                                    // mudou aqui e lá: junta sem perder nada
+  db = fixDb(merged ? mergeData(db, remote.data) : remote.data);
+  save('pinhao:v1', db);
+  syncMeta.syncedAt = remote.updated_at; syncMeta.dirty = merged; saveMeta();
+  if (!dlg.open) render();
+  merged ? pushData() : (syncState = 'ok', syncStatus());
+}
+async function startSync(userId) {
+  if (syncMeta.userId && syncMeta.userId !== userId) {             // outra conta entrou neste aparelho
+    save('pinhao:backup-' + syncMeta.userId, db);                    // guarda o que era da conta anterior, por segurança
+    db = freshDb(); save('pinhao:v1', db);
+    syncMeta = { userId, syncedAt: null, dirty: false };
+  }
+  syncMeta.userId = userId; saveMeta(); syncUser = userId;
+  await pullData();
+}
+async function stopSync() {   // ao sair: envia o que faltar e limpa este aparelho
+  clearTimeout(pushTimer);
+  if (syncMeta.dirty) await pushData();
+  syncUser = null; db = freshDb(); save('pinhao:v1', db);
+  syncMeta = { userId: null, syncedAt: null, dirty: false }; saveMeta(); render();
+}
+const SYNC_TEXT = { saving: 'Salvando na conta…', ok: 'Tudo salvo na sua conta', offline: 'Sem conexão: salvo no celular, vai para a conta quando a internet voltar' };
+function syncStatus() { const el = dlg.querySelector('.syncline'); if (el) { el.textContent = SYNC_TEXT[syncState] || ''; el.dataset.s = syncState; } }
+window.addEventListener('online', () => { if (syncMeta.dirty) pushData(); });
+
 async function showAccount() {
   try { profile = await myProfile(); } catch { profile = null; }   // offline: segue sem o nome
   const me = $('#me'); me.hidden = false;
   me.textContent = (profile?.first_name || '?').trim()[0].toUpperCase();
+  const uid = (await currentUser().catch(() => null))?.id; if (uid) startSync(uid);
 }
 async function initAccount() {
   if (!configured) return;   // sem servidor configurado, o app segue só local (desenvolvimento)
@@ -1316,7 +1377,7 @@ $('#me').addEventListener('click', profileSheet);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // A página sabe a própria versão (BUILD é carimbado pelo publicar.sh) e compara com a publicada (version.json).
 // Se estiver atrás, recarrega: ao abrir, ao voltar para a tela e a cada 30 min, desde que nenhuma ficha esteja aberta.
-const BUILD = '20261122235251';
+const BUILD = '20261123000202';
 const publishedVersion = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j?.v ?? null).catch(() => null);
 async function checkUpdate() {
   const v = await publishedVersion();
@@ -1327,7 +1388,10 @@ async function checkUpdate() {
   location.reload();
 }
 checkUpdate();
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { checkUpdate(); plansChecked = false; setTimeout(checkPlans, 800); } });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') { checkUpdate(); plansChecked = false; setTimeout(checkPlans, 800); if (!dlg.open) pullData(); }
+  else if (syncMeta.dirty) { clearTimeout(pushTimer); pushData(); }   // saindo do app: envia na hora o que estiver pendente
+});
 setInterval(checkUpdate, 30 * 60 * 1000);
 const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
 const dismissed = () => load('lia:install-dismissed', 0) > Date.now() - 14 * 864e5;
