@@ -645,6 +645,19 @@ fetchPlaces();
 
 // --- PWA: service worker (atualiza sozinho) e convite para instalar ---
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+// App instalado fica vivo em segundo plano por dias. Ao voltar para a tela (ou a cada 30 min), compara a versão publicada
+// (version.json, gerado pelo publicar.sh) com a que está aberta e recarrega se mudou, desde que nenhuma ficha esteja aberta.
+let openedVersion = null;
+const publishedVersion = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j?.v ?? null).catch(() => null);
+publishedVersion().then(v => { openedVersion = v; });
+async function checkUpdate() {
+  const v = await publishedVersion();
+  if (!v || !openedVersion || v === openedVersion) return;
+  if (dlg.open) { dlg.addEventListener('close', () => location.reload(), { once: true }); return; }
+  location.reload();
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
+setInterval(checkUpdate, 30 * 60 * 1000);
 const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
 const dismissed = () => load('lia:install-dismissed', 0) > Date.now() - 14 * 864e5;
 function installBanner(html, onYes) {
