@@ -263,7 +263,7 @@ export async function markMentionsSeen() {
 // --- avisos (Web Push) ---
 export async function savePushSub(sub) {
   const j = sub.toJSON();
-  const { error } = await (await client()).from('push_subs').upsert({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }, { onConflict: 'endpoint' });
+  const { error } = await (await client()).from('push_subs').upsert({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }, { onConflict: 'endpoint', ignoreDuplicates: true });   // já inscrito: não faz nada (só precisa de permissão de inserir)
   if (error) throw error;
 }
 export async function deletePushSub(endpoint) {
