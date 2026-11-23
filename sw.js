@@ -1,8 +1,8 @@
 // Service worker da Lia.
 // Arquivos do próprio app: rede primeiro (sem cache HTTP), então toda versão publicada chega na próxima abertura,
 // sem reinstalar. Sem internet, usa a última cópia guardada. Bibliotecas (mapa, Supabase; URL com versão fixa): cache primeiro.
-const CACHE = 'lia-20261123011414';
-const SHELL = ['./', 'index.html', 'privacidade.html', 'termos.html', 'legal.css', 'ranking.mjs', 'hours.mjs', 'conta.mjs', 'onboarding.mjs', 'sync.mjs', 'places.json', 'manifest.webmanifest', 'fonts/eb-garamond.woff2', 'fonts/eb-garamond-italic.woff2', 'fonts/jost.woff2', 'fonts/caveat.woff2', 'icons/icon-192.png'];
+const CACHE = 'lia-20261123013400';
+const SHELL = ['./', 'index.html', 'privacidade.html', 'termos.html', 'legal.css', 'ranking.mjs', 'hours.mjs', 'conta.mjs', 'onboarding.mjs', 'sync.mjs', 'google.mjs', 'places.json', 'manifest.webmanifest', 'fonts/eb-garamond.woff2', 'fonts/eb-garamond-italic.woff2', 'fonts/jost.woff2', 'fonts/caveat.woff2', 'icons/icon-192.png'];
 const CDN = ['https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css'];
 
 self.addEventListener('install', e => {

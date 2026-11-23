@@ -226,6 +226,13 @@ dialog::backdrop{background:#1d1a1788}
 .visits li:first-child{border-top:0}
 .visits time{flex:none;width:72px;color:var(--ink-2)}
 .tag{flex:none;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-tint);border-radius:6px;padding:1px 6px;align-self:flex-start}
+/* dados do Google */
+.gphoto{margin:14px 0 0;border-radius:16px;overflow:hidden;background:var(--track);aspect-ratio:16/9;position:relative}
+.gphoto img{width:100%;height:100%;object-fit:cover;display:block}
+.gphoto figcaption{position:absolute;right:8px;bottom:6px;font-size:11px;color:#fff;text-shadow:0 1px 3px #0008}.gphoto figcaption a{color:#fff}
+.gattr{margin:8px 0 0;font:500 11px Roboto,Arial,sans-serif;color:#5f6368;text-align:right}
+.gicon{display:inline-grid;place-items:center;width:18px;font-weight:700;color:var(--ink-2)}
+.gwarn span{color:var(--heart);font-weight:600}
 /* amigos */
 .dot{position:relative}
 .dot::after{content:'';position:absolute;top:2px;right:2px;width:10px;height:10px;border-radius:50%;background:var(--heart);box-shadow:0 0 0 2px var(--ground)}
@@ -462,6 +469,7 @@ dialog .group{margin-top:22px}
 <script type="module">
 import { startSession, current, done, answer, undo, finalValue, scores, community, migrateV1 } from './ranking.mjs';
 import { parseHours, hoursStatus, hoursWeek } from './hours.mjs';
+import { googleOn, googlePlace, googlePhoto, priceText } from './google.mjs';
 import { configured, currentUser, myProfile, signOut, onPasswordRecovery, searchProfiles, uploadPhoto, photoUrls, deletePhotos, errorText, sendReport, loadUserData, saveUserData, deleteAccount, friendView, friendsFeed, friendsAt, setPrivacy, follow, unfollow, acceptFollow, removeFollower, myFollows, sendMentions, myMentions, markMentionsSeen } from './conta.mjs';
 import { mergeData } from './sync.mjs';
 import { startOnboarding } from './onboarding.mjs';
@@ -849,13 +857,13 @@ function placeSheet(p) {
     const mine = rankedIn(r.cat), sc = scores(mine)[r.id], vs = r.visits.map((v, i) => ({ v, i })).sort((a, b) => b.v.date - a.v.date);
     body = `<p class="sub" style="margin-top:14px">${mine.findIndex(x => x.id === r.id) + 1}º de ${mine.length} no seu ranking de ${CATS[r.cat].toLowerCase()}</p>
       <button class="btn secondary wide story" data-a="story">${icon('share')}Compartilhar nos Stories</button>
-      ${galleryHTML(r)}<div class="fat" data-id="${esc(p.id)}"></div>${communityBox(r, sc)}${infoList(p)}
+      ${galleryHTML(r)}<div class="fat" data-id="${esc(p.id)}"></div>${communityBox(r, sc)}<div class="ginfo" data-id="${esc(p.id)}">${infoList(p)}</div>
       <div class="box"><h3>Suas visitas · ${vs.length}</h3><ol class="visits">${vs.map(({ v, i }) => { const before = notedVisits(r).filter(x => x.date < v.date).at(-1);
         const arrow = v.nota == null || !before ? '' : v.nota > before.nota ? '<span class="arr up">↑</span>' : v.nota < before.nota ? '<span class="arr down">↓</span>' : '';
         return `<li><button data-a="editvisit" data-vi="${i}" aria-label="Editar visita de ${fmtDay(v.date)}"><time>${fmtDay(v.date)}</time>${v.nota != null ? `<span class="vn cond z-${zone(v.nota)}">${v.nota}</span>${arrow}` : ''}${!before && v.nota == null && v.revisit ? '<span class="tag">voltei</span>' : ''}<span class="vt">${[withText(v.with), (v.tags || []).join(', '), esc(v.note)].filter(Boolean).join(' · ') || '<span style="color:var(--ink-2)">sem anotação</span>'}${v.photos?.length ? ` · ${v.photos.length} foto${v.photos.length > 1 ? 's' : ''}` : ''}</span>${icon('edit')}</button></li>`; }).join('')}</ol></div>
       ${extrasHTML(p)}
       <div class="actions"><button class="btn quiet danger" data-a="remove">Tirar do ranking</button></div>`;
-  } else body = `<div class="fat" data-id="${esc(p.id)}"></div>${communityBox(p, null)}${infoList(p)}${extrasHTML(p)}`;
+  } else body = `<div class="fat" data-id="${esc(p.id)}"></div>${communityBox(p, null)}<div class="ginfo" data-id="${esc(p.id)}">${infoList(p)}</div>${extrasHTML(p)}`;
   sheet(`<div class="ph"><div class="t">${placeHead(p)}</div><button class="iconbtn" data-a="share" aria-label="Compartilhar" style="margin-right:34px">${icon('share')}</button></div>${actionCells(p)}${body}`, e => {
     const fr = e.target.closest('[data-friend]'); if (fr) return friendSheet(fr.dataset.friend);
     const b = e.target.closest('[data-a]'); if (!b) return;
@@ -872,6 +880,7 @@ function placeSheet(p) {
     else placeAction(a, p, () => placeSheet(p));
   });
   friendsAtBox(p);
+  googleBox(p);
 }
 // --- idas marcadas (Quero ir): quando, com quem, convite pelo WhatsApp e "Foi?" depois ---
 let planCtx = null;   // ida que virou visita: passa quem e quando para a tela de nota
@@ -1163,6 +1172,33 @@ async function friendSheet(id) {
     } catch (err) { b.disabled = false; alertMsg(errorText(err)); }
   });
 }
+// ficha do lugar: horário, telefone, preço e foto vindos do Google (buscados na hora; só o id do lugar fica guardado)
+async function googleBox(p) {
+  if (!googleOn()) return;
+  const f = full(p); let d;
+  try { d = await googlePlace(f); } catch { return; }   // sem internet ou cota esgotada: fica o que veio do OpenStreetMap
+  const box = dlg.open && dlg.querySelector(`.ginfo[data-id="${CSS.escape(p.id)}"]`); if (!box || !d) return;
+  const rows = [], days = d.regularOpeningHours?.weekdayDescriptions, today = (new Date().getDay() + 6) % 7;   // o Google começa na segunda
+  if (d.businessStatus === 'CLOSED_PERMANENTLY') rows.push(`<li class="gwarn">${icon('clock')}<span>Fechou de vez, segundo o Google</span></li>`);
+  else if (d.businessStatus === 'CLOSED_TEMPORARILY') rows.push(`<li class="gwarn">${icon('clock')}<span>Fechado temporariamente, segundo o Google</span></li>`);
+  if (f.street || f.bairro) rows.push(`<li>${icon('pin')}<a href="${esc(d.googleMapsUri || `https://www.google.com/maps/search/?api=1&query=${f.lat},${f.lon}`)}" target="_blank" rel="noopener">${esc([f.street, f.bairro, 'Curitiba'].filter(Boolean).join(' · '))}</a></li>`);
+  if (days?.length) {
+    const open = d.currentOpeningHours?.openNow, todayTxt = (days[today] || '').replace(/^[^:]+:\s*/, '');
+    rows.push(`<li>${icon('clock')}<details><summary><span class="${open ? 'st-open' : 'st-closed'}">${open ? 'Aberto agora' : 'Fechado agora'}</span> · hoje ${esc(todayTxt)} ▾</summary><div class="week">${days.map((t, i) => { const [k, ...v] = t.split(': ');
+      return `<span class="${i === today ? 'today' : ''}">${esc(k.replace('-feira', ''))}</span><span class="${i === today ? 'today' : ''}">${esc(v.join(': '))}</span>`; }).join('')}</div></details></li>`);
+  } else if (f.hours) rows.push(`<li>${icon('clock')}<span>${esc(f.hours)}</span></li>`);
+  const phone = d.nationalPhoneNumber || f.phone?.split(';')[0];
+  if (phone) rows.push(`<li>${icon('phone')}<a href="tel:${esc(phone.replace(/[^\d+]/g, ''))}">${esc(phone)}</a></li>`);
+  const site = d.websiteUri || (f.site && (/^https?:/.test(f.site) ? f.site : 'https://' + f.site));
+  if (site) rows.push(`<li>${icon('globe')}<a href="${esc(site)}" target="_blank" rel="noopener">${esc(site.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '').slice(0, 40))}</a></li>`);
+  if (f.insta) rows.push(`<li>${icon('globe')}<a href="https://instagram.com/${esc(f.insta.replace(/^.*instagram\.com\//, '').replace(/^@/, ''))}" target="_blank" rel="noopener">@${esc(f.insta.replace(/^.*instagram\.com\//, '').replace(/^@/, '').replace(/\/$/, ''))}</a></li>`);
+  const price = priceText(d), rating = d.rating ? `${String(d.rating).replace('.', ',')} no Google${d.userRatingCount ? ` (${d.userRatingCount.toLocaleString('pt-BR')})` : ''}` : '';
+  if (price || rating) rows.push(`<li><span class="gicon cond">$</span><span>${esc([price, rating].filter(Boolean).join(' · '))}</span></li>`);
+  const ph = d.photos?.[0], who = ph?.authorAttributions?.[0];
+  box.innerHTML = `${ph ? `<figure class="gphoto"><img src="${esc(googlePhoto(ph))}" alt="Foto de ${esc(f.name)}" loading="lazy">${who ? `<figcaption>Foto: <a href="${esc(who.uri || '#')}" target="_blank" rel="noopener">${esc(who.displayName)}</a></figcaption>` : ''}</figure>` : ''}
+    <div class="box"><ul class="info" style="list-style:none;margin:0;padding:0">${rows.join('')}</ul><p class="gattr">Dados do Google Maps</p></div>`;
+}
+
 // ficha do lugar: amigos que já foram
 async function friendsAtBox(p) {
   if (!syncUser) return;
@@ -1638,7 +1674,7 @@ $('#me').addEventListener('click', profileSheet);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // A página sabe a própria versão (BUILD é carimbado pelo publicar.sh) e compara com a publicada (version.json).
 // Se estiver atrás, recarrega: ao abrir, ao voltar para a tela e a cada 30 min, desde que nenhuma ficha esteja aberta.
-const BUILD = '20261123011414';
+const BUILD = '20261123013400';
 const publishedVersion = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j?.v ?? null).catch(() => null);
 async function checkUpdate() {
   const v = await publishedVersion();
