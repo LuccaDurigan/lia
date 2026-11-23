@@ -225,6 +225,35 @@ dialog::backdrop{background:#1d1a1788}
 .visits li:first-child{border-top:0}
 .visits time{flex:none;width:72px;color:var(--ink-2)}
 .tag{flex:none;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-tint);border-radius:6px;padding:1px 6px;align-self:flex-start}
+/* perfil, listas, parecidos, filtros */
+.prof{display:flex;align-items:center;gap:14px;padding-right:36px}
+.avatar.big{width:58px;height:58px;font-size:30px;margin:0;font-style:normal}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:16px;text-align:center}
+.stats b{display:block;font-size:30px;line-height:1.1}.stats span{font-size:12px;color:var(--ink-2)}
+.favs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.fav{display:grid;gap:4px;justify-items:center;text-align:center}
+.fav img,.fav>span,.fav.empty{width:100%;aspect-ratio:3/4;border-radius:10px;object-fit:cover;background:var(--track);display:grid;place-items:center;font-size:30px;color:var(--win)}
+.fav.empty{box-shadow:inset 0 0 0 1.5px var(--line-2);background:var(--surface);color:var(--ink-2)}
+.fav small{font-size:11.5px;line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.nhist{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;height:90px;align-items:end}
+.nhist div{display:grid;grid-template-rows:1fr auto;height:100%;text-align:center}
+.nhist i{align-self:end;display:block;min-height:3px;border-radius:4px 4px 0 0;background:var(--z)}
+.nhist span{font-size:11px;color:var(--ink-2);margin-top:3px}
+.simil li{border-top:1px solid var(--line)}.simil li:first-child{border-top:0}
+.simil li>button{display:flex;align-items:center;gap:10px;width:100%;padding:10px 0;text-align:left}
+.simil .pts{font-size:22px}
+.lrem{display:flex;align-items:center}.lrem>button:first-child{flex:1}
+.lists{display:grid;margin-top:12px}
+.lrow{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line);text-align:left}
+.lrow:first-child{border-top:0}.lrow .pts{font-size:22px}
+.chk{flex:none;width:24px;height:24px;border-radius:7px;box-shadow:inset 0 0 0 1.5px var(--line-2);display:grid;place-items:center;color:transparent}
+.chk svg{width:16px;height:16px}
+.lrow[aria-pressed=true] .chk{background:var(--accent);box-shadow:none;color:#fff}
+.row-inp{display:flex;gap:8px}.row-inp .input{flex:1}
+.tagc{padding:0 14px}
+.chips.filt{padding:12px 16px 4px}
+.chip[aria-pressed=true]{background:var(--ink);color:#fff;box-shadow:none}
+.story{margin-top:14px}
 /* tendência e nota por visita */
 .trend{font-size:12px;font-weight:600;border-radius:6px;padding:2px 7px;margin-left:2px}
 .trend.up{color:var(--win);background:#E3EFE6}.trend.down{color:var(--heart);background:#F6E1DA}
@@ -380,7 +409,7 @@ dialog::backdrop{background:#1d1a1788}
 <script type="module">
 import { startSession, current, done, answer, undo, finalValue, scores, community, migrateV1 } from './ranking.mjs';
 import { parseHours, hoursStatus, hoursWeek } from './hours.mjs';
-import { configured, currentUser, myProfile, signOut, onPasswordRecovery, searchProfiles, uploadPhoto, photoUrls, deletePhotos, errorText } from './conta.mjs';
+import { configured, currentUser, myProfile, signOut, onPasswordRecovery, searchProfiles, uploadPhoto, photoUrls, deletePhotos, errorText, sendReport } from './conta.mjs';
 import { startOnboarding } from './onboarding.mjs';
 
 const CATS = { RES: 'Restaurantes', CAF: 'Cafés e padarias', BAR: 'Bares' };
@@ -392,6 +421,8 @@ const persist = () => save('pinhao:v1', db);
 // v2: notas de 1 a 10 (antes: faixas gostei/ok/não gostei) e pessoas que foram com você
 if (!db.v) { db.ranked = migrateV1(db.ranked); db.v = 2; }
 db.people ||= [];   // {id, name, userId?, username?, used}
+db.favs ||= [];     // até 4 lugares favoritos (ids), mostrados no perfil
+db.lists ||= [];    // {id, name, items: [ids], created}
 persist();
 // lugares vêm de places.json (cópia do OpenStreetMap publicada junto com o app; o service worker guarda para uso offline)
 let places = null;
@@ -466,7 +497,13 @@ function results() {
   if (q.length < 2) {
     const top = (key, n) => { const c = {}; for (const p of places) for (const v of key(p)) c[v] = (c[v] || 0) + 1; return Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, n).map(e => e[0]); };
     const chips = xs => `<div class="chips">${xs.map(x => `<button class="chip" data-q="${esc(x)}">${esc(x)}</button>`).join('')}</div>`;
-    return `<h2 class="group">Culinárias</h2>${chips(top(p => cuisines(p.cuisine).slice(0, 1), 12))}
+    if (browse) {
+      const base = places.filter(p => p.cat === cat && p.lat), list = filterNear(base, browse === 'open').slice(0, 40);
+      return `<div class="chips filt" style="margin-top:12px"><button class="chip" data-browse="open" aria-pressed="${browse === 'open'}">Abertos agora</button><button class="chip" data-browse="near" aria-pressed="${browse === 'near'}">Perto de mim</button><button class="chip" data-browse="off">Limpar</button></div>
+        ${list.length ? `<ol class="table" style="margin-top:6px">${list.map(p => `<li class="row"><button class="row-main" data-pick="${p.id}">${rowBody(p, placeSub(p))}</button></li>`).join('')}</ol>` : '<p class="msg">Nada por aqui.</p>'}`;
+    }
+    return `<h2 class="group">Explorar</h2><div class="chips"><button class="chip" data-browse="open">Abertos agora</button><button class="chip" data-browse="near">Perto de mim</button></div>
+      <h2 class="group">Culinárias</h2>${chips(top(p => cuisines(p.cuisine).slice(0, 1), 12))}
       <h2 class="group">Bairros</h2>${chips(top(p => p.bairro ? [p.bairro] : [], 10))}`;
   }
   const sc = allScores();
@@ -519,7 +556,10 @@ const views = {
     if (!want.length) return `<div class="wrap empty"><h2>Nenhum lugar salvo em ${CATS[cat].toLowerCase()}</h2>
       <p>Na busca ou no mapa, toque no marcador de um lugar para guardar aqui e não esquecer.</p>
       <button class="btn primary" data-tab="buscar">${icon('search')}Buscar lugares</button></div>`;
-    return `<div class="wrap" style="padding:14px 0 0"><ol class="table">${want.map(p => `<li class="row"><button class="row-main" data-open="${p.id}">${rowBody(p)}</button><button class="pill" data-rank="${p.id}">Já fui</button></li>`).join('')}</ol></div>`;
+    const list = filterNear(want, queroOpen);
+    return `<div class="chips filt"><button class="chip" data-qf="open" aria-pressed="${queroOpen}">Aberto agora</button><button class="chip" data-qf="near" aria-pressed="${!!nearOn}">Perto de mim</button></div>
+      ${list.length ? `<div class="wrap" style="padding:6px 0 0"><ol class="table">${list.map(p => `<li class="row"><button class="row-main" data-open="${p.id}">${rowBody(p, placeSub(p))}</button><button class="pill" data-rank="${p.id}">Já fui</button></li>`).join('')}</ol></div>`
+        : `<p class="msg">Nenhum lugar salvo aberto agora.</p>`}`;
   },
   buscar() {
     return `<div class="band"><div class="wrap"><label class="field">${icon('search')}<input id="q" type="search" enterkeyhint="search" autocomplete="off" placeholder="Nome, culinária ou bairro" aria-label="Buscar lugar" value="${esc(query)}"></label></div></div>
@@ -538,7 +578,7 @@ const views = {
     for (const r of shown) {
       const d = day(r.date);
       if (d !== last) { out += `${last ? '</ol>' : ''}<h2 class="group">${d}</h2><ol class="table">`; last = d; }
-      const sub = [r.visit.revisit ? 'Voltei' : 'Primeira visita', esc(withText(r.visit.with)), r.visit.note && `“${esc(r.visit.note)}”`].filter(Boolean).join(' · ');
+      const sub = [r.visit.revisit ? 'Voltei' : 'Primeira visita', esc(withText(r.visit.with)), (r.visit.tags || []).join(', '), r.visit.note && `“${esc(r.visit.note)}”`].filter(Boolean).join(' · ');
       out += `<li><button class="row" data-open="${r.id}">${rowBody(r, sub)}${r.visit.photos?.length ? `<img class="rthumb" data-path="${esc(r.visit.photos[0])}" alt="">` : ''}${pts(r.visit.nota ?? sc[r.id])}</button></li>`;
     }
     return `<div class="wrap" style="padding:0 0 28px">${out}</ol></div>`;
@@ -697,22 +737,192 @@ function placeSheet(p) {
     r.visits = visits(r);   // entradas antigas ganham a lista de visitas para poder editar
     const mine = rankedIn(r.cat), sc = scores(mine)[r.id], vs = r.visits.map((v, i) => ({ v, i })).sort((a, b) => b.v.date - a.v.date);
     body = `<p class="sub" style="margin-top:14px">${mine.findIndex(x => x.id === r.id) + 1}º de ${mine.length} no seu ranking de ${CATS[r.cat].toLowerCase()}</p>
+      <button class="btn secondary wide story" data-a="story">${icon('share')}Compartilhar nos Stories</button>
       ${galleryHTML(r)}${communityBox(r, sc)}${infoList(p)}
       <div class="box"><h3>Suas visitas · ${vs.length}</h3><ol class="visits">${vs.map(({ v, i }) => { const before = notedVisits(r).filter(x => x.date < v.date).at(-1);
         const arrow = v.nota == null || !before ? '' : v.nota > before.nota ? '<span class="arr up">↑</span>' : v.nota < before.nota ? '<span class="arr down">↓</span>' : '';
-        return `<li><button data-a="editvisit" data-vi="${i}" aria-label="Editar visita de ${fmtDay(v.date)}"><time>${fmtDay(v.date)}</time>${v.nota != null ? `<span class="vn cond z-${zone(v.nota)}">${v.nota}</span>${arrow}` : ''}${!before && v.nota == null && v.revisit ? '<span class="tag">voltei</span>' : ''}<span class="vt">${[withText(v.with), esc(v.note)].filter(Boolean).join(' · ') || '<span style="color:var(--ink-2)">sem anotação</span>'}${v.photos?.length ? ` · ${v.photos.length} foto${v.photos.length > 1 ? 's' : ''}` : ''}</span>${icon('edit')}</button></li>`; }).join('')}</ol></div>
+        return `<li><button data-a="editvisit" data-vi="${i}" aria-label="Editar visita de ${fmtDay(v.date)}"><time>${fmtDay(v.date)}</time>${v.nota != null ? `<span class="vn cond z-${zone(v.nota)}">${v.nota}</span>${arrow}` : ''}${!before && v.nota == null && v.revisit ? '<span class="tag">voltei</span>' : ''}<span class="vt">${[withText(v.with), (v.tags || []).join(', '), esc(v.note)].filter(Boolean).join(' · ') || '<span style="color:var(--ink-2)">sem anotação</span>'}${v.photos?.length ? ` · ${v.photos.length} foto${v.photos.length > 1 ? 's' : ''}` : ''}</span>${icon('edit')}</button></li>`; }).join('')}</ol></div>
+      ${extrasHTML(p)}
       <div class="actions"><button class="btn quiet danger" data-a="remove">Tirar do ranking</button></div>`;
-  } else body = `${communityBox(p, null)}${infoList(p)}`;
+  } else body = `${communityBox(p, null)}${infoList(p)}${extrasHTML(p)}`;
   sheet(`<div class="ph"><div class="t">${placeHead(p)}</div><button class="iconbtn" data-a="share" aria-label="Compartilhar" style="margin-right:34px">${icon('share')}</button></div>${actionCells(p)}${body}`, e => {
     const b = e.target.closest('[data-a]'); if (!b) return;
     const a = b.dataset.a;
     if (b.dataset.view != null) return openViewer(visits(r).flatMap(v => v.photos || []).reverse(), +b.dataset.view);
     if (a === 'editvisit') return editVisit(p, r, +b.dataset.vi);
+    if (a === 'similar') return placeSheet(byId(b.dataset.id));
+    if (a === 'addlist') return listPicker(p);
+    if (a === 'report') return reportSheet(p);
+    if (a === 'story') return shareStory(r, b);
     if (a === 'remove') { b.textContent = 'Confirmar: tirar do ranking'; b.dataset.a = 'remove2'; }
     else if (a === 'remove2') { deletePhotos(visits(r).flatMap(v => v.photos || [])).catch(() => {}); db.ranked = db.ranked.filter(x => x.id !== p.id); persist(); dlg.close(); }
     else placeAction(a, p, () => placeSheet(p));
   });
 }
+// --- ocasião da visita ---
+const TAGS = ['Aniversário', 'Encontro', 'Família', 'Amigos', 'Trabalho', 'Comemoração', 'Sozinho', 'Delivery'];
+const tagPicker = v => `<div class="people tags">${TAGS.map(t => `<button class="chip-p tagc" data-tag="${t}" aria-pressed="${(v.tags || []).includes(t)}">${t}</button>`).join('')}</div>`;
+function tagClick(e, v) {
+  const b = e.target.closest('[data-tag]'); if (!b) return false;
+  v.tags ||= []; const t = b.dataset.tag;
+  v.tags = v.tags.includes(t) ? v.tags.filter(x => x !== t) : [...v.tags, t];
+  b.setAttribute('aria-pressed', v.tags.includes(t)); persist(); return true;
+}
+
+// --- aberto agora / perto de mim ---
+let queroOpen = false, nearOn = false, browse = null;
+const isOpen = p => hoursStatus(parseHours(full(p).hours))?.open === true;
+const km = (p) => { if (!me || !p.lat) return null; const [lo, la] = me, R = 6371, r = x => x * Math.PI / 180;
+  const a = Math.sin(r(p.lat - la) / 2) ** 2 + Math.cos(r(la)) * Math.cos(r(p.lat)) * Math.sin(r(p.lon - lo) / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(a)); };
+const fmtKm = d => d < 1 ? `${Math.round(d * 1000 / 50) * 50} m` : `${d.toFixed(1).replace('.', ',')} km`;
+function filterNear(list, onlyOpen) {
+  let out = onlyOpen ? list.filter(isOpen) : list;
+  if (nearOn && me) out = [...out].sort((a, b) => (km(a) ?? 1e9) - (km(b) ?? 1e9));
+  return out;
+}
+const placeSub = p => { const d = nearOn && km(p); const st = hoursStatus(parseHours(full(p).hours));
+  return [d != null && d !== false ? fmtKm(d) : '', st?.open ? 'aberto agora' : '', meta(p)].filter(Boolean).join(' · '); };
+const locate = () => new Promise((ok, fail) => navigator.geolocation
+  ? navigator.geolocation.getCurrentPosition(pos => { me = [pos.coords.longitude, pos.coords.latitude]; ok(me); }, fail, { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 })
+  : fail(new Error('sem localização')));
+const alertMsg = t => sheet(`<p style="padding-right:30px">${esc(t)}</p>`, () => {});
+
+// --- parecidos e informar erro (final da ficha) ---
+function similarPlaces(p) {
+  const f = full(p), cs = (f.cuisine || '').split(';').filter(Boolean);
+  if (!cs.length && !f.bairro) return [];
+  return (places || []).filter(x => x.id !== p.id && x.cat === f.cat)
+    .map(x => ({ x, s: (x.cuisine || '').split(';').filter(c => cs.includes(c)).length * 2 + (f.bairro && x.bairro === f.bairro ? 1 : 0) }))
+    .filter(o => o.s >= (cs.length ? 2 : 1)).sort((a, b) => b.s - a.s).slice(0, 5).map(o => o.x);
+}
+function extrasHTML(p) {
+  const sim = similarPlaces(p), inLists = db.lists.filter(l => l.items.includes(p.id)).length;
+  return `<button class="btn secondary wide" data-a="addlist" style="margin-top:16px">${icon('plus')}${inLists ? `Em ${inLists} lista${inLists > 1 ? 's' : ''}` : 'Adicionar a uma lista'}</button>
+    ${sim.length ? `<div class="box"><h3>Parecidos</h3><ol class="simil">${sim.map(x => `<li><button data-a="similar" data-id="${x.id}">${rowBody(x)}${db.ranked.some(r => r.id === x.id) ? pts(allScores()[x.id]) : ''}</button></li>`).join('')}</ol></div>` : ''}
+    <div class="actions" style="margin-top:8px"><button class="btn quiet" data-a="report">Informar erro nos dados</button></div>`;
+}
+function reportSheet(p) {
+  const f = full(p), kinds = ['Horário errado', 'Endereço errado', 'Telefone ou site errado', 'Fechou de vez', 'Outro'];
+  const osm = /^[nwr]\d+$/.test(p.id) ? `https://www.openstreetmap.org/edit?${{ n: 'node', w: 'way', r: 'relation' }[p.id[0]]}=${p.id.slice(1)}` : '';
+  let kind = '';
+  sheet(`<h2>Informar erro</h2><p class="sub">${esc(f.name)}</p>
+    <div class="people" style="margin-top:14px">${kinds.map(k => `<button class="chip-p tagc" data-kind="${k}" aria-pressed="false">${k}</button>`).join('')}</div>
+    <label class="lbl" for="rnote">O que está errado? <small class="sub">opcional</small></label><textarea id="rnote" rows="2" maxlength="500" placeholder="Ex.: fecha às 22h, não 24 horas"></textarea>
+    <button class="btn primary wide" data-a="send" disabled>Enviar</button>
+    ${osm ? `<p class="sub" style="margin-top:12px">Os dados vêm do OpenStreetMap, um mapa aberto. Se quiser, <a href="${osm}" target="_blank" rel="noopener">corrija direto lá</a>.</p>` : ''}`, async e => {
+    const k = e.target.closest('[data-kind]');
+    if (k) { kind = k.dataset.kind; dlg.querySelectorAll('[data-kind]').forEach(x => x.setAttribute('aria-pressed', x === k)); dlg.querySelector('[data-a="send"]').disabled = false; return; }
+    const b = e.target.closest('[data-a="send"]'); if (!b || !kind) return;
+    b.disabled = true; b.innerHTML = '<span class="spin" aria-label="Enviando"></span>';
+    try { await sendReport({ place_id: p.id, place_name: f.name, kind, note: dlg.querySelector('#rnote').value.trim() }); alertMsg('Obrigado! Vamos conferir.'); }
+    catch (err) { b.disabled = false; b.textContent = 'Enviar'; alertMsg(errorText(err)); }
+  });
+}
+
+// --- listas próprias ---
+function listPicker(p) {
+  sheet(`<h2>Adicionar a uma lista</h2><p class="sub">${esc(full(p).name)}</p>
+    <div class="lists">${db.lists.map(l => `<button class="lrow" data-list="${l.id}" aria-pressed="${l.items.includes(p.id)}"><span class="chk">${icon('check')}</span><span class="t"><b>${esc(l.name)}</b><small>${l.items.length} lugar${l.items.length === 1 ? '' : 'es'}</small></span></button>`).join('')}</div>
+    <label class="lbl" for="lname">Nova lista</label><div class="row-inp"><input class="input" id="lname" maxlength="60" placeholder="Ex.: Cafés para trabalhar"><button class="btn primary" data-a="newlist">Criar</button></div>
+    <button class="btn secondary wide" data-a="done">Pronto</button>`, e => {
+    const lb = e.target.closest('[data-list]');
+    if (lb) { const l = db.lists.find(x => x.id === lb.dataset.list); l.items = l.items.includes(p.id) ? l.items.filter(x => x !== p.id) : [...l.items, p.id]; persist(); lb.setAttribute('aria-pressed', l.items.includes(p.id)); lb.querySelector('small').textContent = `${l.items.length} lugar${l.items.length === 1 ? '' : 'es'}`; return; }
+    const a = e.target.closest('[data-a]')?.dataset.a;
+    if (a === 'newlist') { const name = dlg.querySelector('#lname').value.trim(); if (!name) return dlg.querySelector('#lname').focus();
+      db.lists.push({ id: 'l' + Date.now().toString(36), name, items: [p.id], created: Date.now() }); persist(); listPicker(p); }
+    else if (a === 'done') placeSheet(p);
+  });
+}
+function listSheet(id) {
+  const l = db.lists.find(x => x.id === id); if (!l) return profileSheet();
+  const sc = allScores(), items = l.items.map(byId).filter(Boolean);
+  sheet(`<h2>${esc(l.name)}</h2><p class="sub">${items.length} lugar${items.length === 1 ? '' : 'es'}</p>
+    ${items.length ? `<ol class="simil" style="margin-top:12px">${items.map(x => `<li class="lrem"><button data-a="open" data-id="${x.id}">${rowBody(x)}${sc[x.id] != null ? pts(sc[x.id]) : ''}</button><button class="iconbtn" data-a="rm" data-id="${x.id}" aria-label="Tirar da lista">${icon('x')}</button></li>`).join('')}</ol>`
+      : '<p class="msg" style="padding:16px 0">Lista vazia. Abra um lugar e toque em "Adicionar a uma lista".</p>'}
+    <label class="lbl" for="lname">Nome</label><div class="row-inp"><input class="input" id="lname" maxlength="60" value="${esc(l.name)}"><button class="btn secondary" data-a="rename">Salvar</button></div>
+    <div class="actions"><button class="btn quiet" data-a="back">Voltar ao perfil</button><button class="btn quiet danger" data-a="del">Apagar lista</button></div>`, e => {
+    const b = e.target.closest('[data-a]'); if (!b) return;
+    const a = b.dataset.a;
+    if (a === 'open') placeSheet(byId(b.dataset.id));
+    else if (a === 'rm') { l.items = l.items.filter(x => x !== b.dataset.id); persist(); listSheet(id); }
+    else if (a === 'rename') { const n = dlg.querySelector('#lname').value.trim(); if (n) { l.name = n; persist(); listSheet(id); } }
+    else if (a === 'back') profileSheet();
+    else if (a === 'del') { b.textContent = 'Confirmar: apagar lista'; b.dataset.a = 'del2'; }
+    else if (a === 'del2') { db.lists = db.lists.filter(x => x.id !== id); persist(); profileSheet(); }
+  });
+}
+
+// --- perfil: favoritos, números, suas notas e listas ---
+function profileSheet() {
+  const sc = allScores(), year = new Date().getFullYear(), vs = db.ranked.flatMap(r => visits(r));
+  const yearPlaces = db.ranked.filter(r => visits(r).some(v => new Date(v.date).getFullYear() === year)).length;
+  const bairros = new Set(db.ranked.map(r => full(r).bairro).filter(Boolean)).size;
+  db.favs = db.favs.filter(id => db.ranked.some(r => r.id === id));
+  const favs = db.favs.map(id => db.ranked.find(r => r.id === id));
+  const hist = Array(10).fill(0); Object.values(sc).forEach(n => hist[Math.min(10, Math.max(1, n)) - 1]++);
+  const max = Math.max(1, ...hist), photo = r => visits(r).flatMap(v => v.photos || []).at(-1);
+  sheet(`<div class="prof"><i class="avatar big">${esc((profile?.first_name || '?')[0].toUpperCase())}</i><div><h2>${esc([profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Você')}</h2>${profile ? `<p class="sub">@${esc(profile.username)}</p>` : ''}</div></div>
+    <div class="stats"><div><b class="cond">${db.ranked.length}</b><span>lugares</span></div><div><b class="cond">${yearPlaces}</b><span>em ${year}</span></div><div><b class="cond">${vs.length}</b><span>visitas</span></div><div><b class="cond">${bairros}</b><span>bairros</span></div></div>
+    <div class="box"><h3>Favoritos</h3><div class="favs">${[0, 1, 2, 3].map(i => favs[i]
+      ? `<button class="fav" data-a="openfav" data-id="${favs[i].id}">${photo(favs[i]) ? `<img data-path="${esc(photo(favs[i]))}" alt="">` : `<span class="cond">${sc[favs[i].id]}</span>`}<small>${esc(favs[i].name)}</small></button>`
+      : `<button class="fav empty" data-a="editfavs" aria-label="Escolher favorito">${icon('plus')}</button>`).join('')}</div>
+      ${db.ranked.length ? '<button class="btn quiet" data-a="editfavs" style="padding:0;margin-top:6px">Escolher favoritos</button>' : ''}</div>
+    <div class="box"><h3>Suas notas</h3><div class="nhist">${hist.map((n, i) => `<div><i class="z-${zone(i + 1)}" style="height:${(n / max) * 100}%"></i><span>${i + 1}</span></div>`).join('')}</div></div>
+    <div class="box"><h3>Listas · ${db.lists.length}</h3>${db.lists.length ? `<ol class="simil">${db.lists.map(l => `<li><button data-a="openlist" data-id="${l.id}"><span class="t"><b>${esc(l.name)}</b><small>${l.items.length} lugar${l.items.length === 1 ? '' : 'es'}</small></span></button></li>`).join('')}</ol>` : '<p class="sub">Abra um lugar e toque em "Adicionar a uma lista" para criar a primeira.</p>'}</div>
+    <div class="actions"><button class="btn quiet" data-a="logout">Sair da conta</button></div>`, async e => {
+    const b = e.target.closest('[data-a]'); if (!b) return;
+    const a = b.dataset.a;
+    if (a === 'openfav') placeSheet(byId(b.dataset.id));
+    else if (a === 'editfavs') favPicker();
+    else if (a === 'openlist') listSheet(b.dataset.id);
+    else if (a === 'logout') { await signOut().catch(() => {}); dlg.close(); $('#me').hidden = true; profile = null; startOnboarding({ onDone: showAccount }); }
+  });
+}
+function favPicker() {
+  const sc = allScores(), list = [...db.ranked].sort((a, b) => b.value - a.value);
+  const draw = () => sheet(`<h2>Seus 4 favoritos</h2><p class="sub">${db.favs.length} de 4 escolhidos</p>
+    <div class="lists">${list.map(r => `<button class="lrow" data-fav="${r.id}" aria-pressed="${db.favs.includes(r.id)}"><span class="chk">${icon('check')}</span><span class="t"><b>${esc(r.name)}</b><small>${meta(r)}</small></span>${pts(sc[r.id])}</button>`).join('')}</div>
+    <button class="btn primary wide" data-a="done">Pronto</button>`, e => {
+    const f = e.target.closest('[data-fav]');
+    if (f) { const id = f.dataset.fav; db.favs = db.favs.includes(id) ? db.favs.filter(x => x !== id) : db.favs.length < 4 ? [...db.favs, id] : db.favs; persist(); return draw(); }
+    if (e.target.closest('[data-a="done"]')) profileSheet();
+  });
+  draw();
+}
+
+// --- cartão para os Stories do Instagram (1080×1920) ---
+async function shareStory(r, btn) {
+  btn.disabled = true;
+  try {
+    await Promise.all(['500 120px "EB Garamond"', '600 160px Caveat', '400 40px Jost'].map(f => document.fonts.load(f)));
+    const c = document.createElement('canvas'); c.width = 1080; c.height = 1920; const x = c.getContext('2d');
+    const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+    x.fillStyle = '#F6EEDF'; x.fillRect(0, 0, 1080, 1920);
+    const path = visits(r).flatMap(v => v.photos || []).at(-1);
+    if (path && configured) {   // foto da visita mais recente no topo, recortada para caber
+      try { const url = (await photoUrls([path]))[path]; const bmp = await createImageBitmap(await (await fetch(url)).blob());
+        const W = 960, H = 900, k = Math.max(W / bmp.width, H / bmp.height), sw = W / k, sh = H / k;
+        x.save(); x.beginPath(); x.roundRect(60, 120, W, H, 40); x.clip(); x.drawImage(bmp, (bmp.width - sw) / 2, (bmp.height - sh) / 2, sw, sh, 60, 120, W, H); x.restore(); } catch {}
+    }
+    const n = scores(rankedIn(r.cat))[r.id], f = full(r), top = path ? 1110 : 640;   // sem foto, o texto fica no meio
+    x.fillStyle = '#2E2A24'; x.font = '500 88px "EB Garamond"';
+    const words = f.name.split(' '), lines = []; let line = '';
+    for (const w of words) { if (x.measureText(line + ' ' + w).width > 940 && line) { lines.push(line); line = w; } else line = line ? line + ' ' + w : w; }
+    lines.push(line); lines.slice(0, 3).forEach((l, i) => x.fillText(l, 70, top + i * 96));
+    const y = top + Math.min(3, lines.length) * 96 + 20;
+    x.fillStyle = css('--' + zone(n)) || '#2F7A4F'; x.font = '500 300px "EB Garamond"'; x.fillText(String(n), 62, y + 260);
+    x.fillStyle = '#6F665A'; x.font = '400 40px Jost';
+    x.fillText([cuisines(f.cuisine)[0], f.bairro, 'Curitiba'].filter(Boolean).join(' · '), 70, y + 340);
+    x.fillText('visitado em ' + new Date(visits(r).at(-1).date).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' }), 70, y + 396);
+    x.fillStyle = '#1F3A93'; x.font = '600 150px Caveat'; x.save(); x.translate(70, 1800); x.rotate(-4 * Math.PI / 180); x.fillText('Lia', 0, 0); x.restore();
+    x.fillStyle = '#6F665A'; x.font = '400 34px Jost'; x.textAlign = 'right'; x.fillText('meu ranking de Curitiba', 1010, 1780);
+    const blob = await new Promise(ok => c.toBlob(ok, 'image/png'));
+    const file = new File([blob], `lia-${f.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`, { type: 'image/png' });
+    if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: f.name }).catch(() => {});
+    else { const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }
+  } finally { btn.disabled = false; }
+}
+
 // Editar uma visita: data, quem foi, fotos e anotação. A nota é do lugar e muda pelo "Voltei aqui".
 const dayValue = d => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };
 const markRevisits = r => { r.visits.sort((a, b) => a.date - b.date).forEach((v, i) => { v.revisit = i > 0; }); r.date = r.visits.at(-1).date; };
@@ -723,12 +933,14 @@ function editVisit(p, r, i) {
   sheet(`<h2>Editar visita</h2><p class="sub">${esc(r.name)}</p>
     <label class="lbl" for="vdate">Data</label><input class="input" type="date" id="vdate" value="${dayValue(v.date)}" max="${dayValue(Date.now())}">
     <span class="lbl">Quem foi com você?</span><div id="who">${whoPicker(v.with)}</div>
+    <span class="lbl">Ocasião</span>${tagPicker(v)}
     <span class="lbl">Fotos <small class="sub">até ${MAX_PHOTOS}</small></span><div id="shots">${shotsHTML(v)}</div>
     <input type="file" id="ph-in" accept="image/*" multiple hidden>
     <label class="lbl" for="note">Anotação</label><textarea id="note" rows="2" placeholder="O que você pediu">${esc(v.note)}</textarea>
     <button class="btn primary wide" data-a="save">Salvar</button>
     <div class="actions" style="margin-top:6px"><button class="btn quiet danger" data-a="del">${only ? 'Apagar visita e tirar do ranking' : 'Apagar esta visita'}</button></div>`, e => {
     if (whoClick(e, v)) return;
+    if (tagClick(e, v)) return;
     if (shotsClick(e, v)) return;
     const b = e.target.closest('[data-a]'); if (!b) return;
     if (b.dataset.a === 'save') {
@@ -902,7 +1114,7 @@ function finish(place, s) {
   pendingShots = 0; shotError = '';
   const prev = db.ranked.find(r => r.id === place.id);
   db.ranked = db.ranked.filter(r => r.id !== place.id);
-  const visit = { date: Date.now(), note: '', revisit: !!prev, with: [], photos: [] };
+  const visit = { date: Date.now(), note: '', revisit: !!prev, with: [], photos: [], tags: [] };
   const entry = { id: place.id, name: place.name, cat: place.cat, cuisine: place.cuisine, bairro: place.bairro, lat: place.lat, lon: place.lon,
     value: finalValue(s), loved: !!prev?.loved, visits: [...(prev ? visits(prev) : []), visit], date: visit.date };
   visit.nota = Math.floor(entry.value);   // cada visita guarda a nota daquele dia; a do lugar é sempre a da última
@@ -913,6 +1125,7 @@ function finish(place, s) {
     <p>${mine.findIndex(x => x.id === place.id) + 1}º de ${mine.length} em ${CATS[place.cat].toLowerCase()}</p></div>
     <button class="btn secondary wide heart" data-love aria-pressed="${entry.loved}">${icon('heart', entry.loved)}Amei, voltaria sempre</button>
     <span class="lbl">Quem foi com você?</span><div id="who">${whoPicker(visit.with)}</div>
+    <span class="lbl">Ocasião</span>${tagPicker(visit)}
     <span class="lbl">Fotos <small class="sub">até ${MAX_PHOTOS}</small></span><div id="shots">${shotsHTML(visit)}</div>
     <input type="file" id="ph-in" accept="image/*" multiple hidden>
     <label class="lbl" for="note">Anotação desta visita</label><textarea id="note" rows="2" placeholder="O que você pediu"></textarea>
@@ -920,6 +1133,7 @@ function finish(place, s) {
     const lv = e.target.closest('[data-love]');
     if (lv) { entry.loved = !entry.loved; persist(); lv.setAttribute('aria-pressed', entry.loved); lv.innerHTML = icon('heart', entry.loved) + 'Amei, voltaria sempre'; return; }
     if (whoClick(e, visit)) return;
+    if (tagClick(e, visit)) return;
     if (shotsClick(e, visit)) return;
     if (!e.target.closest('[data-ok]')) return;
     visit.note = dlg.querySelector('#note').value.trim(); persist(); justRanked = place.id; dlg.close();
@@ -956,11 +1170,18 @@ document.addEventListener('click', e => {
   else if (d.want) { toggleWant(d.want); $('#results').innerHTML = results(); }
   else if (d.act === 'add') addPlace();
   else if (d.act === 'retry') { loadError = ''; render(); fetchPlaces(); }
+  else if (d.qf === 'open') { queroOpen = !queroOpen; render(); }
+  else if (d.qf === 'near') { nearOn ? (nearOn = false, render()) : locate().then(() => { nearOn = true; render(); }).catch(() => alertMsg('Não deu para pegar sua localização. Libere a permissão no navegador.')); }
+  else if (d.browse) {
+    if (d.browse === 'off') { browse = null; return render(); }
+    const go = () => { browse = d.browse; $('#results').innerHTML = results(); };
+    d.browse === 'near' ? locate().then(() => { nearOn = true; go(); }).catch(() => alertMsg('Não deu para pegar sua localização. Libere a permissão no navegador.')) : go();
+  }
   else if (d.calnav) { const base = calMonth || new Date(new Date().getFullYear(), new Date().getMonth(), 1); calMonth = new Date(base.getFullYear(), base.getMonth() + +d.calnav, 1); calDay = null; render(); }
   else if (d.calday) { calDay = calDay === d.calday ? null : d.calday; render(); }
   else if (d.calclear != null) { calDay = null; render(); }
 });
-$('#view').addEventListener('input', e => { if (e.target.id === 'q') { query = e.target.value; $('#results').innerHTML = results(); } });
+$('#view').addEventListener('input', e => { if (e.target.id === 'q') { query = e.target.value; browse = null; $('#results').innerHTML = results(); } });
 
 render();
 fetchPlaces();
@@ -980,18 +1201,13 @@ async function initAccount() {
   if (user) showAccount(); else startOnboarding({ onDone: showAccount });
 }
 initAccount();
-$('#me').addEventListener('click', () => sheet(`<h2>${esc([profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Sua conta')}</h2>
-  ${profile ? `<p class="sub">@${esc(profile.username)}</p>` : ''}
-  <div class="actions"><button class="btn secondary" data-a="logout">Sair da conta</button></div>`, async e => {
-  if (!e.target.closest('[data-a="logout"]')) return;
-  await signOut().catch(() => {}); dlg.close(); $('#me').hidden = true; profile = null; startOnboarding({ onDone: showAccount });
-}));
+$('#me').addEventListener('click', profileSheet);
 
 // --- PWA: service worker (atualiza sozinho) e convite para instalar ---
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // A página sabe a própria versão (BUILD é carimbado pelo publicar.sh) e compara com a publicada (version.json).
 // Se estiver atrás, recarrega: ao abrir, ao voltar para a tela e a cada 30 min, desde que nenhuma ficha esteja aberta.
-const BUILD = '20261122230218';
+const BUILD = '20261122233234';
 const publishedVersion = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j?.v ?? null).catch(() => null);
 async function checkUpdate() {
   const v = await publishedVersion();

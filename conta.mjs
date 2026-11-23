@@ -23,6 +23,7 @@ export function errorText(err) {
   if (/database error saving new user|duplicate key/i.test(m)) return 'Esse @ acabou de ser escolhido por outra pessoa. Volte e tente outro.';
   if (/rate limit|too many/i.test(m)) return 'Muitas tentativas. Espere um minuto e tente de novo.';
   if (/failed to fetch|network|load failed/i.test(m)) return 'Sem conexão. Confira a internet e tente de novo.';
+  if (/sem-conta-erro/.test(m)) return 'Entre na sua conta para informar erros.';
   if (/sem-conta/.test(m)) return 'Entre na sua conta para guardar fotos.';
   if (/exceeded the maximum allowed size|payload too large/i.test(m)) return 'Essa foto é grande demais.';
   return 'Algo deu errado. Tente de novo.';
@@ -145,4 +146,12 @@ export async function deletePhotos(paths) {
   const { error } = await (await client()).storage.from('photos').remove(paths);
   if (error) throw error;
   paths.forEach(p => urlCache.delete(p));
+}
+
+// "Informar erro" num lugar (tabela reports; só quem está logado envia, ninguém lê pelo app)
+export async function sendReport(r) {
+  const user = await currentUser();
+  if (!user) throw new Error('sem-conta-erro');
+  const { error } = await (await client()).from('reports').insert(r);
+  if (error) throw error;
 }
