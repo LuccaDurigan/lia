@@ -1539,7 +1539,7 @@ document.addEventListener('click', e => {
   if (dlg.contains(e.target)) return;
   if (e.target.closest('[data-a="quick"]')) return quickStart();
   const d = e.target.closest('button')?.dataset; if (!d) return;
-  if (d.dmode) { diaryMode = d.dmode; if (d.dmode === 'friends') { feed = null; loadSocial(); } return render(); }
+  if (d.dmode) { diaryMode = d.dmode; if (d.dmode === 'friends') { feed = null; loadSocial().then(() => { if (tab === 'atividade' && diaryMode === 'friends') render(); }); } return render(); }
   if (d.friend) return friendSheet(d.friend);
   if (d.a2 === 'findfriends') return friendSearch();
   if (d.mention) { const p = byId(d.mention); if (!p) return; return db.ranked.some(r => r.id === p.id) ? placeSheet(p) : rankFlow(p); }
@@ -1636,7 +1636,7 @@ $('#me').addEventListener('click', profileSheet);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // A página sabe a própria versão (BUILD é carimbado pelo publicar.sh) e compara com a publicada (version.json).
 // Se estiver atrás, recarrega: ao abrir, ao voltar para a tela e a cada 30 min, desde que nenhuma ficha esteja aberta.
-const BUILD = '20261123005834';
+const BUILD = '20261123011113';
 const publishedVersion = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j?.v ?? null).catch(() => null);
 async function checkUpdate() {
   const v = await publishedVersion();
