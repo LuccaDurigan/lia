@@ -233,6 +233,7 @@ dialog::backdrop{background:#1d1a1788}
 .qs-box{flex:none;width:24px;height:24px;border-radius:7px;box-shadow:inset 0 0 0 1.5px var(--line-2);display:grid;place-items:center;color:transparent;transition:background-color .15s ease,color .15s ease}
 .qs-box svg{width:16px;height:16px}
 .row.qs[aria-pressed="true"] .qs-box{background:var(--accent);box-shadow:none;color:#fff}
+.qs-foot .btn:disabled{opacity:.45}
 .qs-foot{position:sticky;bottom:0;padding-top:12px;background:linear-gradient(transparent,var(--ground) 30%)}
 /* LGPD no perfil */
 .legal{display:grid;gap:2px}
@@ -1336,7 +1337,9 @@ function quickStart() {
   if (!places) return toast('Carregando os lugares…');
   const picked = new Map(), ranked = new Set(db.ranked.map(r => r.id));
   const pool = allPlaces().filter(p => !ranked.has(p.id));
-  const known = pool.filter(p => p.insta || p.site);   // sem dados de popularidade: quem tem site ou Instagram costuma ser mais conhecido
+  const CHAINS = /^(subway|mc ?donald|burger king|bob'?s|habib'?s|giraffas|starbucks|kfc|pizza hut|domino'?s|spoleto|china in box|outback|madero|jeronimo|coco bambu|cacau show|kopenhagen)/i;
+  // sem dados de popularidade: quem tem site ou Instagram costuma ser mais conhecido; redes grandes ficam só na busca; a aba aberta vem primeiro
+  const known = pool.filter(p => (p.insta || p.site) && !CHAINS.test(norm(p.name))).sort((a, b) => (b.cat === cat) - (a.cat === cat));
   const list = q => {
     const nq = norm(q.trim());
     const hits = nq ? pool.filter(p => norm(`${p.name} ${p.cuisine || ''} ${p.bairro || ''}`).includes(nq)) : known;
@@ -1474,7 +1477,7 @@ $('#me').addEventListener('click', profileSheet);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // A página sabe a própria versão (BUILD é carimbado pelo publicar.sh) e compara com a publicada (version.json).
 // Se estiver atrás, recarrega: ao abrir, ao voltar para a tela e a cada 30 min, desde que nenhuma ficha esteja aberta.
-const BUILD = '20261123002859';
+const BUILD = '20261123003126';
 const publishedVersion = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j?.v ?? null).catch(() => null);
 async function checkUpdate() {
   const v = await publishedVersion();
