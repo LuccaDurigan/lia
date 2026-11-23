@@ -3,14 +3,13 @@
 <head>
 <meta charset="utf-8">
 <script>
-// Quem já usa a Lia (app instalado, conta neste navegador ou link de aviso) vai direto para o app.
+// Só vai direto para o app quem está dentro do app instalado ou chegou por um aviso / link de conta.
 (function () {
   try {
     var q = location.search, h = location.hash;
     var installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
     var deep = /[?&](lugar|ver)=/.test(q) || /access_token|type=recovery/.test(h);
-    var session = Object.keys(localStorage).some(function (k) { return /^sb-.*-auth-token$/.test(k); }) || localStorage.getItem('pinhao:v1');
-    if (installed || deep || session) location.replace('app.html' + q + h);
+    if (installed || deep) location.replace('app.html' + q + h);
   } catch (e) {}
 })();
 </script>

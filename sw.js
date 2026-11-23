@@ -1,7 +1,7 @@
 // Service worker da Lia.
 // Arquivos do próprio app: rede primeiro (sem cache HTTP), então toda versão publicada chega na próxima abertura,
 // sem reinstalar. Sem internet, usa a última cópia guardada. Bibliotecas (mapa, Supabase; URL com versão fixa): cache primeiro.
-const CACHE = 'lia-20261123022027';
+const CACHE = 'lia-20261123022409';
 const SHELL = ['./', 'index.html', 'app.html', 'privacidade.html', 'termos.html', 'legal.css', 'ranking.mjs', 'hours.mjs', 'conta.mjs', 'onboarding.mjs', 'sync.mjs', 'google.mjs', 'places.json', 'manifest.webmanifest', 'fonts/eb-garamond.woff2', 'fonts/eb-garamond-italic.woff2', 'fonts/jost.woff2', 'fonts/caveat.woff2', 'icons/icon-192.png'];
 const CDN = ['https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css'];
 
@@ -38,7 +38,9 @@ self.addEventListener('push', e => {
 });
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-  const url = new URL(e.notification.data?.url || '/', self.registration.scope).href;
+  const u = new URL(e.notification.data?.url || '/', self.registration.scope);
+  if (u.pathname === '/' || u.pathname.endsWith('/index.html')) u.pathname = '/app.html';   // aviso abre direto o app, não a página de apresentação
+  const url = u.href;
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
     const open = list.find(c => c.url.startsWith(self.registration.scope));
     if (open) { open.postMessage({ lia: 'open', url }); return open.focus(); }   // app já aberto: navega por dentro, sem recarregar

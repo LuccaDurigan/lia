@@ -5,7 +5,7 @@
   "lang": "pt-BR",
   "id": "./",
   "start_url": "app.html",
-  "scope": "./",
+  "scope": "app.html",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#F6EEDF",
