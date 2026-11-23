@@ -261,6 +261,8 @@ dialog::backdrop{background:#1d1a1788}
 .gattr{margin:8px 0 0;font:500 11px Roboto,Arial,sans-serif;color:#5f6368;text-align:right}
 .gicon{display:inline-grid;place-items:center;width:18px;font-weight:700;color:var(--ink-2)}
 .gwarn span{color:var(--heart);font-weight:600}
+/* avisos */
+.pushrow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;font-weight:600;font-size:15px}
 /* amigos */
 .dot{position:relative}
 .dot::after{content:'';position:absolute;top:2px;right:2px;width:10px;height:10px;border-radius:50%;background:var(--heart);box-shadow:0 0 0 2px var(--ground)}
@@ -498,7 +500,7 @@ dialog .group{margin-top:22px}
 import { startSession, current, done, answer, undo, finalValue, scores, community, migrateV1 } from './ranking.mjs';
 import { parseHours, hoursStatus, hoursWeek } from './hours.mjs';
 import { googleOn, googlePlace, googlePhoto, priceText } from './google.mjs';
-import { configured, currentUser, myProfile, signOut, onPasswordRecovery, searchProfiles, uploadPhoto, photoUrls, deletePhotos, errorText, sendReport, loadUserData, saveUserData, deleteAccount, friendView, friendsFeed, friendsAt, setPrivacy, follow, unfollow, acceptFollow, removeFollower, myFollows, sendMentions, myMentions, markMentionsSeen } from './conta.mjs';
+import { configured, currentUser, myProfile, signOut, onPasswordRecovery, searchProfiles, uploadPhoto, photoUrls, deletePhotos, errorText, sendReport, loadUserData, saveUserData, deleteAccount, friendView, friendsFeed, friendsAt, setPrivacy, follow, unfollow, acceptFollow, removeFollower, myFollows, sendMentions, myMentions, markMentionsSeen, savePushSub, deletePushSub } from './conta.mjs';
 import { mergeData } from './sync.mjs';
 import { startOnboarding } from './onboarding.mjs';
 
@@ -1103,6 +1105,7 @@ function profileSheet() {
       ${db.ranked.length ? '<button class="btn quiet" data-a="editfavs" style="padding:0;margin-top:6px">Escolher favoritos</button>' : ''}</div>
     <div class="box"><h3>Suas notas</h3><div class="nhist">${hist.map((n, i) => `<div><i class="z-${zone(i + 1)}" style="height:${(n / max) * 100}%"></i><span>${i + 1}</span></div>`).join('')}</div></div>
     <div class="box"><h3>Listas · ${db.lists.length}</h3>${db.lists.length ? `<ol class="simil">${db.lists.map(l => `<li><button data-a="openlist" data-id="${l.id}"><span class="t"><b>${esc(l.name)}</b><small>${l.items.length} lugar${l.items.length === 1 ? '' : 'es'}</small></span></button></li>`).join('')}</ol>` : '<p class="sub">Abra um lugar e toque em "Adicionar a uma lista" para criar a primeira.</p>'}</div>
+    ${syncUser ? `<div class="box" id="pushbox"><h3>Avisos</h3>${pushBoxHTML()}</div>` : ''}
     ${syncUser ? `<div class="box"><h3>Quem vê o quê</h3><p class="sub">Seu nome e @ aparecem na busca para quem tem conta. O resto, você escolhe.</p>
       ${PRIV.map(([k, label]) => `<label class="privrow"><span>${label}</span><select data-priv="${k}">${PRIV_OPTS.map(([v, t]) => `<option value="${v}"${(privacy()[k]) === v ? ' selected' : ''}>${t}</option>`).join('')}</select></label>`).join('')}</div>` : ''}
     <div class="box legal"><button data-a="contact">${icon('chat')}Fale com a Lia</button><button data-a="export">${icon('share')}Baixar meus dados</button>
@@ -1116,6 +1119,8 @@ function profileSheet() {
     else if (a === 'openlist') listSheet(b.dataset.id);
     else if (a === 'contact') contactSheet();
     else if (a === 'findfriends') friendSearch();
+    else if (a === 'pushon') enablePush(b);
+    else if (a === 'pushoff') disablePush(b);
     else if (a === 'flist') peopleList(b.dataset.k);
     else if (a === 'accept' || a === 'reject') { b.disabled = true; try { await (a === 'accept' ? acceptFollow : removeFollower)(b.dataset.id); await loadSocial(); toast(a === 'accept' ? 'Pedido aceito' : 'Pedido recusado'); profileSheet(); } catch (err) { b.disabled = false; alertMsg(errorText(err)); } }
     else if (a === 'export') exportData();
@@ -1124,6 +1129,55 @@ function profileSheet() {
   });
   dlg.onchange = privChange;
 }
+// --- Avisos (Web Push) ---
+const VAPID_PUBLIC = 'BNPAhqCVXjof92qktOLdLDjtnNTBspoOSsq3bMzdOzNMrTkzoj4opItCsYaIvFbfwCW4cPN0uNiEAsPk7eIzKyQ';
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) && !/Android/.test(navigator.userAgent);
+let pushOn = false;
+async function pushState() {   // descobre se este aparelho já está inscrito
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  const reg = await navigator.serviceWorker.ready.catch(() => null);
+  pushOn = !!(await reg?.pushManager.getSubscription().catch(() => null)) && Notification.permission === 'granted';
+  const box = document.getElementById('pushbox'); if (box) box.innerHTML = '<h3>Avisos</h3>' + pushBoxHTML();
+}
+function pushBoxHTML() {
+  const what = '<p class="sub">Pedidos para seguir, marcações, quando um amigo vai num lugar do seu Quero ir e o "Foi?" depois de uma ida marcada.</p>';
+  if (isIOS && !standalone) return what + '<p class="sub" style="margin-top:8px">No iPhone, os avisos funcionam com a Lia instalada: no Safari, toque em Compartilhar e depois em "Adicionar à Tela de Início". Abra por lá e volte aqui.</p>';
+  if (!('PushManager' in window) || !('Notification' in window)) return what + '<p class="sub" style="margin-top:8px">Este navegador não recebe avisos.</p>';
+  if (Notification.permission === 'denied') return what + '<p class="sub" style="margin-top:8px">Os avisos estão bloqueados para a Lia. Libere nas configurações do navegador (Notificações) e volte aqui.</p>';
+  return what + (pushOn ? `<div class="pushrow"><span class="st-open">Avisos ligados neste aparelho</span><button class="btn quiet sm" data-a="pushoff">Desligar</button></div>`
+    : `<button class="btn primary wide" data-a="pushon" style="margin-top:10px">Ativar avisos</button>`);
+}
+const b64u = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - s.length % 4) % 4)), c => c.charCodeAt(0));
+async function enablePush(b) {
+  b.disabled = true;
+  try {
+    if (await Notification.requestPermission() !== 'granted') { await pushState(); return; }
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u(VAPID_PUBLIC) });
+    await savePushSub(sub); toast('Avisos ligados');
+  } catch (err) { b.disabled = false; alertMsg(errorText(err)); }
+  await pushState();
+}
+async function disablePush(b) {
+  b.disabled = true;
+  try { const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription(); if (sub) { await deletePushSub(sub.endpoint).catch(() => {}); await sub.unsubscribe(); } toast('Avisos desligados'); }
+  catch (err) { alertMsg(errorText(err)); }
+  await pushState();
+}
+// tocar num aviso: ?lugar=ID abre a ficha; ?ver=perfil abre o perfil; ?ver=amigos abre o Diário dos amigos
+function openFromLink(href) {
+  const q = new URL(href, location.href).searchParams, lugar = q.get('lugar'), ver = q.get('ver');
+  if (!lugar && !ver) return false;
+  const go = () => {
+    if (lugar) { const p = byId(lugar); if (p) placeSheet(p); }
+    else if (ver === 'perfil') profileSheet();
+    else if (ver === 'amigos') { tab = 'atividade'; diaryMode = 'friends'; feed = null; render(); loadSocial().then(render); }
+  };
+  if (places) go(); else { const w = setInterval(() => { if (places) { clearInterval(w); go(); } }, 200); }
+  return true;
+}
+navigator.serviceWorker?.addEventListener('message', e => { if (e.data?.lia === 'open') openFromLink(e.data.url); });
+
 // --- Amigos ---
 const PRIV = [['ranking', 'Ranking e notas'], ['notes', 'Anotações das visitas'], ['photos', 'Fotos'], ['want', 'Quero ir']];
 const PRIV_OPTS = [['followers', 'Seguidores que aprovei'], ['all', 'Todos com conta'], ['none', 'Só eu']];
@@ -1707,6 +1761,7 @@ async function startSync(userId) {
   await pullData();
 }
 async function stopSync() {   // ao sair: envia o que faltar e limpa este aparelho
+  try { const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription(); if (sub) { await deletePushSub(sub.endpoint).catch(() => {}); await sub.unsubscribe(); } } catch {}   // avisos desta conta não chegam mais aqui
   clearTimeout(pushTimer); social = { followers: [], following: [], requests: [] }; mentions = []; feed = null; diaryMode = 'me';
   $('#me').classList.remove('dot'); document.querySelector('nav [data-tab="atividade"]')?.classList.remove('dot');
   if (syncMeta.dirty) await pushData();
@@ -1722,7 +1777,8 @@ async function showAccount(o) {
   try { profile = await myProfile(); } catch { profile = null; }   // offline: segue sem o nome
   const me = $('#me'); me.hidden = false;
   me.textContent = (profile?.first_name || '?').trim()[0].toUpperCase();
-  const uid = (await currentUser().catch(() => null))?.id; if (uid) { await startSync(uid); loadSocial(); }
+  const uid = (await currentUser().catch(() => null))?.id; if (uid) { await startSync(uid); loadSocial(); pushState(); }
+  if (openFromLink(location.href)) history.replaceState(null, '', location.pathname);
 }
 async function initAccount() {
   if (!configured) return;   // sem servidor configurado, o app segue só local (desenvolvimento)
@@ -1738,7 +1794,7 @@ $('#me').addEventListener('click', profileSheet);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // A página sabe a própria versão (BUILD é carimbado pelo publicar.sh) e compara com a publicada (version.json).
 // Se estiver atrás, recarrega: ao abrir, ao voltar para a tela e a cada 30 min, desde que nenhuma ficha esteja aberta.
-const BUILD = '20261123015834';
+const BUILD = '20261123020139';
 const publishedVersion = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j?.v ?? null).catch(() => null);
 async function checkUpdate() {
   const v = await publishedVersion();

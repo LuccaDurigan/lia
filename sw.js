@@ -1,7 +1,7 @@
 // Service worker da Lia.
 // Arquivos do próprio app: rede primeiro (sem cache HTTP), então toda versão publicada chega na próxima abertura,
 // sem reinstalar. Sem internet, usa a última cópia guardada. Bibliotecas (mapa, Supabase; URL com versão fixa): cache primeiro.
-const CACHE = 'lia-20261123015834';
+const CACHE = 'lia-20261123020139';
 const SHELL = ['./', 'index.html', 'privacidade.html', 'termos.html', 'legal.css', 'ranking.mjs', 'hours.mjs', 'conta.mjs', 'onboarding.mjs', 'sync.mjs', 'google.mjs', 'places.json', 'manifest.webmanifest', 'fonts/eb-garamond.woff2', 'fonts/eb-garamond-italic.woff2', 'fonts/jost.woff2', 'fonts/caveat.woff2', 'icons/icon-192.png'];
 const CDN = ['https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css'];
 
@@ -27,4 +27,21 @@ self.addEventListener('fetch', e => {
     e.respondWith(caches.match(req).then(r => r || fetch(req).then(res => { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); return res; })));
   }
   // mapa (tiles do OpenFreeMap) e o resto: direto da rede
+});
+
+// avisos (Web Push): mostra o aviso e, ao tocar, abre a Lia na tela certa (?lugar=, ?ver=)
+self.addEventListener('push', e => {
+  let d = {}; try { d = e.data?.json() || {}; } catch { d = { title: 'Lia', body: e.data?.text() }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Lia', {
+    body: d.body || '', tag: d.tag, data: { url: d.url || '/' }, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', lang: 'pt-BR',
+  }));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = new URL(e.notification.data?.url || '/', self.registration.scope).href;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    const open = list.find(c => c.url.startsWith(self.registration.scope));
+    if (open) { open.postMessage({ lia: 'open', url }); return open.focus(); }   // app já aberto: navega por dentro, sem recarregar
+    return self.clients.openWindow(url);
+  }));
 });

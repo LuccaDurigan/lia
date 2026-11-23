@@ -259,3 +259,13 @@ export async function markMentionsSeen() {
   const s = await client(), me = await currentUserId();
   await s.from('mentions').update({ seen: true }).eq('target', me).eq('seen', false);
 }
+
+// --- avisos (Web Push) ---
+export async function savePushSub(sub) {
+  const j = sub.toJSON();
+  const { error } = await (await client()).from('push_subs').upsert({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }, { onConflict: 'endpoint' });
+  if (error) throw error;
+}
+export async function deletePushSub(endpoint) {
+  await (await client()).from('push_subs').delete().eq('endpoint', endpoint);
+}
