@@ -878,9 +878,8 @@ function infoList(p) {
   return rows.length ? `<div class="box"><ul class="info" style="list-style:none;margin:0;padding:0">${rows.join('')}</ul></div>` : '';
 }
 
-const PROPOSTA = new URLSearchParams(location.search).has('proposta');
-// ficha nova (em aprovação): sua nota em destaque, foto do Google como capa, suas visitas antes dos dados do lugar
-function placeSheet2(p) {
+// ficha do lugar: sua nota em destaque, foto do Google como capa, suas visitas antes dos dados do lugar
+function placeSheet(p) {
   const r = db.ranked.find(x => x.id === p.id), f = full(p);
   const own = r ? visits(r).flatMap(v => v.photos || []).length : 0;
   let hero = '', mid = '';
@@ -925,40 +924,6 @@ function placeSheet2(p) {
   googleBox(p);
 }
 
-function placeSheet(p) {
-  if (PROPOSTA) return placeSheet2(p);
-  const r = db.ranked.find(x => x.id === p.id);
-  let body = '';
-  if (r) {
-    r.visits = visits(r);   // entradas antigas ganham a lista de visitas para poder editar
-    const mine = rankedIn(r.cat), sc = scores(mine)[r.id], vs = r.visits.map((v, i) => ({ v, i })).sort((a, b) => b.v.date - a.v.date);
-    body = `<p class="sub" style="margin-top:14px">${mine.findIndex(x => x.id === r.id) + 1}º de ${mine.length} no seu ranking de ${CATS[r.cat].toLowerCase()}</p>
-      <button class="btn secondary wide story" data-a="story">${icon('share')}Compartilhar nos Stories</button>
-      ${galleryHTML(r)}<div class="fat" data-id="${esc(p.id)}"></div>${communityBox(r, sc)}<div class="ginfo" data-id="${esc(p.id)}">${infoList(p)}</div>
-      <div class="box"><h3>Suas visitas · ${vs.length}</h3><ol class="visits">${vs.map(({ v, i }) => { const before = notedVisits(r).filter(x => x.date < v.date).at(-1);
-        const arrow = v.nota == null || !before ? '' : v.nota > before.nota ? '<span class="arr up">↑</span>' : v.nota < before.nota ? '<span class="arr down">↓</span>' : '';
-        return `<li><button data-a="editvisit" data-vi="${i}" aria-label="Editar visita de ${fmtDay(v.date)}"><time>${fmtDay(v.date)}</time>${v.nota != null ? `<span class="vn cond z-${zone(v.nota)}">${v.nota}</span>${arrow}` : ''}${!before && v.nota == null && v.revisit ? '<span class="tag">voltei</span>' : ''}<span class="vt">${[withText(v.with), (v.tags || []).join(', '), esc(v.note)].filter(Boolean).join(' · ') || '<span style="color:var(--ink-2)">sem anotação</span>'}${v.photos?.length ? ` · ${v.photos.length} foto${v.photos.length > 1 ? 's' : ''}` : ''}</span>${icon('edit')}</button></li>`; }).join('')}</ol></div>
-      ${extrasHTML(p)}
-      <div class="actions"><button class="btn quiet danger" data-a="remove">Tirar do ranking</button></div>`;
-  } else body = `<div class="fat" data-id="${esc(p.id)}"></div>${communityBox(p, null)}<div class="ginfo" data-id="${esc(p.id)}">${infoList(p)}</div>${extrasHTML(p)}`;
-  sheet(`<div class="ph"><div class="t">${placeHead(p)}</div><button class="iconbtn" data-a="share" aria-label="Compartilhar" style="margin-right:34px">${icon('share')}</button></div>${actionCells(p)}${body}`, e => {
-    const fr = e.target.closest('[data-friend]'); if (fr) return friendSheet(fr.dataset.friend);
-    const b = e.target.closest('[data-a]'); if (!b) return;
-    const a = b.dataset.a;
-    if (b.dataset.view != null) return openViewer(visits(r).flatMap(v => v.photos || []).reverse(), +b.dataset.view);
-    if (a === 'editvisit') return editVisit(p, r, +b.dataset.vi);
-    if (a === 'similar') return placeSheet(byId(b.dataset.id));
-    if (a === 'addlist') return listPicker(p);
-    if (a === 'plan') return planSheet(p);
-    if (a === 'report') return reportSheet(p);
-    if (a === 'story') return shareStory(r, b);
-    if (a === 'remove') { b.textContent = 'Confirmar: tirar do ranking'; b.dataset.a = 'remove2'; }
-    else if (a === 'remove2') { deletePhotos(visits(r).flatMap(v => v.photos || [])).catch(() => {}); db.ranked = db.ranked.filter(x => x.id !== p.id); persist(); dlg.close(); }
-    else placeAction(a, p, () => placeSheet(p));
-  });
-  friendsAtBox(p);
-  googleBox(p);
-}
 // --- idas marcadas (Quero ir): quando, com quem, convite pelo WhatsApp e "Foi?" depois ---
 let planCtx = null;   // ida que virou visita: passa quem e quando para a tela de nota
 const planFor = id => db.plans.find(pl => pl.placeId === id);
@@ -1062,13 +1027,6 @@ function similarPlaces(p) {
   return (places || []).filter(x => x.id !== p.id && x.cat === f.cat)
     .map(x => ({ x, s: (x.cuisine || '').split(';').filter(c => cs.includes(c)).length * 2 + (f.bairro && x.bairro === f.bairro ? 1 : 0) }))
     .filter(o => o.s >= (cs.length ? 2 : 1)).sort((a, b) => b.s - a.s).slice(0, 5).map(o => o.x);
-}
-function extrasHTML(p) {
-  const sim = similarPlaces(p), inLists = db.lists.filter(l => l.items.includes(p.id)).length, pl = planFor(p.id);
-  return `${db.ranked.some(r => r.id === p.id) ? '' : `<button class="btn secondary wide" data-a="plan" style="margin-top:16px">${icon('cal')}${pl ? esc(planText(pl)) : 'Marcar ida'}</button>`}
-    <button class="btn secondary wide" data-a="addlist" style="margin-top:${db.ranked.some(r => r.id === p.id) ? 16 : 8}px">${icon('plus')}${inLists ? `Em ${inLists} lista${inLists > 1 ? 's' : ''}` : 'Adicionar a uma lista'}</button>
-    ${sim.length ? `<div class="box"><h3>Parecidos</h3><ol class="simil">${sim.map(x => `<li><button data-a="similar" data-id="${x.id}">${rowBody(x)}${db.ranked.some(r => r.id === x.id) ? pts(allScores()[x.id]) : ''}</button></li>`).join('')}</ol></div>` : ''}
-    <div class="actions" style="margin-top:8px"><button class="btn quiet" data-a="report">Informar erro nos dados</button></div>`;
 }
 function reportSheet(p) {
   const f = full(p), kinds = ['Horário errado', 'Endereço errado', 'Telefone ou site errado', 'Fechou de vez', 'Outro'];
@@ -1251,11 +1209,12 @@ async function friendSheet(id) {
 }
 // ficha do lugar: horário, telefone, preço e foto vindos do Google (buscados na hora; só o id do lugar fica guardado)
 async function googleBox(p) {
-  if (!googleOn()) return;
+  const noCover = () => { const c = dlg.querySelector(`.cover[data-id="${CSS.escape(p.id)}"]`); if (c) c.hidden = true; };
+  if (!googleOn()) return noCover();
   const f = full(p); let d;
-  try { d = await googlePlace(f); } catch { return; }   // sem internet ou cota esgotada: fica o que veio do OpenStreetMap
+  try { d = await googlePlace(f); } catch { return noCover(); }   // sem internet ou cota esgotada: fica o que veio do OpenStreetMap
   const box = dlg.open && dlg.querySelector(`.ginfo[data-id="${CSS.escape(p.id)}"]`); if (!box) return;
-  if (!d) { box.insertAdjacentHTML('beforeend', '<p class="sub gnone">O Google não tem este lugar. Ele pode ter fechado ou mudado de nome; se souber, use "Informar erro nos dados".</p>'); return; }
+  if (!d) { noCover(); box.insertAdjacentHTML('beforeend', '<p class="sub gnone">O Google não tem este lugar. Ele pode ter fechado ou mudado de nome; se souber, use "Informar erro nos dados".</p>'); return; }
   const rows = [], days = d.regularOpeningHours?.weekdayDescriptions, today = (new Date().getDay() + 6) % 7;   // o Google começa na segunda
   if (d.businessStatus === 'CLOSED_PERMANENTLY') rows.push(`<li class="gwarn">${icon('clock')}<span>Fechou de vez, segundo o Google</span></li>`);
   else if (d.businessStatus === 'CLOSED_TEMPORARILY') rows.push(`<li class="gwarn">${icon('clock')}<span>Fechado temporariamente, segundo o Google</span></li>`);
@@ -1268,21 +1227,18 @@ async function googleBox(p) {
   const phone = d.nationalPhoneNumber || f.phone?.split(';')[0];
   if (phone) rows.push(`<li>${icon('phone')}<a href="tel:${esc(phone.replace(/[^\d+]/g, ''))}">${esc(phone)}</a></li>`);
   const site = d.websiteUri || (f.site && (/^https?:/.test(f.site) ? f.site : 'https://' + f.site));
-  if (site) rows.push(`<li>${icon('globe')}<a href="${esc(site)}" target="_blank" rel="noopener">${esc(site.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '').slice(0, 40))}</a></li>`);
+  if (site) { const clean = site.replace(/[?#].*$/, ''); rows.push(`<li>${icon('globe')}<a href="${esc(clean)}" target="_blank" rel="noopener">${esc(clean.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '').slice(0, 40))}</a></li>`); }
   if (f.insta) rows.push(`<li>${icon('globe')}<a href="https://instagram.com/${esc(f.insta.replace(/^.*instagram\.com\//, '').replace(/^@/, ''))}" target="_blank" rel="noopener">@${esc(f.insta.replace(/^.*instagram\.com\//, '').replace(/^@/, '').replace(/\/$/, ''))}</a></li>`);
   const price = priceText(d), rating = d.rating ? `${String(d.rating).replace('.', ',')} no Google${d.userRatingCount ? ` (${d.userRatingCount.toLocaleString('pt-BR')})` : ''}` : '';
   if (price || rating) rows.push(`<li>${icon('tag')}<span>${esc([price, rating].filter(Boolean).join(' · '))}</span></li>`);
   const ph = d.photos?.[0], who = ph?.authorAttributions?.[0];
-  if (PROPOSTA) {
+  {
     const cov = dlg.querySelector(`.cover[data-id="${CSS.escape(p.id)}"]`), st = dlg.querySelector(`.gstat[data-id="${CSS.escape(p.id)}"]`), g = gSummary(d);
     if (cov && !cov.hidden && ph) cov.innerHTML = `<img src="${esc(googlePhoto(ph, 1000))}" alt="Foto de ${esc(f.name)}">${who ? `<span>Foto: ${esc(who.displayName)} · Google Maps</span>` : ''}`;
     else if (cov) cov.hidden = true;
     if (st) st.innerHTML = g.closed ? `<b class="st-closed">${g.closed}</b>` : g.hasHours ? `<b class="${g.open ? 'st-open' : 'st-closed'}">${g.open ? 'Aberto agora' : 'Fechado agora'}</b> · hoje ${esc(g.todayTxt)}` : '';
     box.innerHTML = `<div class="box"><ul class="info" style="list-style:none;margin:0;padding:0">${rows.join('')}</ul><p class="gattr">Dados do Google Maps</p></div>`;
-    return;
   }
-  box.innerHTML = `${ph ? `<figure class="gphoto"><img src="${esc(googlePhoto(ph))}" alt="Foto de ${esc(f.name)}" loading="lazy">${who ? `<figcaption>Foto: <a href="${esc(who.uri || '#')}" target="_blank" rel="noopener">${esc(who.displayName)}</a></figcaption>` : ''}</figure>` : ''}
-    <div class="box"><ul class="info" style="list-style:none;margin:0;padding:0">${rows.join('')}</ul><p class="gattr">Dados do Google Maps</p></div>`;
 }
 
 // resumo do Google em uma linha: aberto/fechado com o horário de hoje, preço e nota
@@ -1781,7 +1737,7 @@ $('#me').addEventListener('click', profileSheet);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // A página sabe a própria versão (BUILD é carimbado pelo publicar.sh) e compara com a publicada (version.json).
 // Se estiver atrás, recarrega: ao abrir, ao voltar para a tela e a cada 30 min, desde que nenhuma ficha esteja aberta.
-const BUILD = '20261123015001';
+const BUILD = '20261123015206';
 const publishedVersion = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j?.v ?? null).catch(() => null);
 async function checkUpdate() {
   const v = await publishedVersion();
