@@ -292,6 +292,7 @@ nav .dest button.dot::after{top:8px;right:calc(50% - 18px);box-shadow:0 0 0 2px 
 .simil li{border-top:1px solid var(--line)}.simil li:first-child{border-top:0}
 .simil li>button{display:flex;align-items:center;gap:10px;width:100%;padding:10px 0;text-align:left}
 .simil .pts{font-size:22px}
+.simil li.req>.btn{width:auto;flex:none;padding:0 14px;justify-content:center}
 .lrem{display:flex;align-items:center}.lrem>button:first-child{flex:1}
 .lists{display:grid;margin-top:12px}
 .lrow{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line);text-align:left}
@@ -1635,7 +1636,7 @@ $('#me').addEventListener('click', profileSheet);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // A página sabe a própria versão (BUILD é carimbado pelo publicar.sh) e compara com a publicada (version.json).
 // Se estiver atrás, recarrega: ao abrir, ao voltar para a tela e a cada 30 min, desde que nenhuma ficha esteja aberta.
-const BUILD = '20261123004923';
+const BUILD = '20261123005834';
 const publishedVersion = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j?.v ?? null).catch(() => null);
 async function checkUpdate() {
   const v = await publishedVersion();
