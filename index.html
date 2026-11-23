@@ -827,6 +827,7 @@ const dlg = $('#dlg');
 function sheet(html, handler) {
   dlg.innerHTML = `<div class="sheet"><button class="iconbtn x" data-close aria-label="Fechar">${icon('x')}</button>${html}</div>`;
   if (!dlg.open) dlg.showModal();
+  dlg.scrollTop = 0;   // abrir outra coisa na mesma janela (ex.: um "Parecido") começa do topo
   dlg.onclick = e => { if (e.target === dlg || e.target.closest('[data-close]')) return dlg.close(); handler(e); };
   dlg.oninput = null; dlg.onchange = null;
   hydratePhotos(dlg);
@@ -1737,7 +1738,7 @@ $('#me').addEventListener('click', profileSheet);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // A página sabe a própria versão (BUILD é carimbado pelo publicar.sh) e compara com a publicada (version.json).
 // Se estiver atrás, recarrega: ao abrir, ao voltar para a tela e a cada 30 min, desde que nenhuma ficha esteja aberta.
-const BUILD = '20261123015206';
+const BUILD = '20261123015834';
 const publishedVersion = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j?.v ?? null).catch(() => null);
 async function checkUpdate() {
   const v = await publishedVersion();
