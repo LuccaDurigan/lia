@@ -4,12 +4,14 @@
 export const GOOGLE_KEY = 'AIzaSyBm2n-Dcsa8BHHOPeK-C7EZdn1DeLsw6-s';   // chave restrita a lia.fluxari.com (é pública por natureza; a proteção é a restrição no Google Cloud)
 export const googleOn = () => !!GOOGLE_KEY;
 const BASE = 'https://places.googleapis.com/v1';
-const ids = (() => { try { return JSON.parse(localStorage.getItem('lia:gids') || '{}'); } catch { return {}; } })();
+const ids = (() => { try { const o = JSON.parse(localStorage.getItem('lia:gids') || '{}'); for (const k in o) if (!o[k]) delete o[k]; return o; } catch { return {}; } })();   // "não achou" não fica guardado: tenta de novo em outra sessão
+const misses = new Set();
 const details = new Map();
 const km = (a, b, c, d) => { const r = Math.PI / 180, x = (d - b) * r * Math.cos((a + c) / 2 * r), y = (c - a) * r; return Math.hypot(x, y) * 6371; };
 
 async function findId(p) {
-  if (p.id in ids) return ids[p.id];
+  if (ids[p.id]) return ids[p.id];
+  if (misses.has(p.id)) return null;
   const res = await fetch(`${BASE}/places:searchText`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': GOOGLE_KEY, 'X-Goog-FieldMask': 'places.id,places.location' },   // só id e local: consulta mais barata
@@ -18,9 +20,10 @@ async function findId(p) {
   });
   if (!res.ok) throw new Error('google ' + res.status);
   const hit = ((await res.json()).places || []).find(x => !p.lat || km(p.lat, p.lon, x.location.latitude, x.location.longitude) < 0.4);   // nome parecido do outro lado da cidade não vale
-  ids[p.id] = hit?.id || null;
+  if (!hit) { misses.add(p.id); return null; }
+  ids[p.id] = hit.id;
   try { localStorage.setItem('lia:gids', JSON.stringify(ids)); } catch {}
-  return ids[p.id];
+  return hit.id;
 }
 
 const FIELDS = 'id,regularOpeningHours,currentOpeningHours.openNow,nationalPhoneNumber,websiteUri,priceLevel,priceRange,rating,userRatingCount,photos,googleMapsUri,businessStatus';

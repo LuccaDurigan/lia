@@ -228,6 +228,7 @@ dialog::backdrop{background:#1d1a1788}
 .tag{flex:none;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-tint);border-radius:6px;padding:1px 6px;align-self:flex-start}
 /* dados do Google */
 #mapcard .mg:empty{display:none}
+.gnone{font-size:13px;margin:10px 2px 0}#mapcard .gnone{margin:0}
 #mapcard .mg{display:flex;gap:12px;align-items:center;margin:2px 8px 10px 0}
 #mapcard .mg img{flex:none;width:64px;height:64px;border-radius:12px;object-fit:cover;background:var(--track)}
 #mapcard .mg p{margin:0;font-size:14px;line-height:1.35}#mapcard .mg .sub{font-size:13px}
@@ -1183,7 +1184,8 @@ async function googleBox(p) {
   if (!googleOn()) return;
   const f = full(p); let d;
   try { d = await googlePlace(f); } catch { return; }   // sem internet ou cota esgotada: fica o que veio do OpenStreetMap
-  const box = dlg.open && dlg.querySelector(`.ginfo[data-id="${CSS.escape(p.id)}"]`); if (!box || !d) return;
+  const box = dlg.open && dlg.querySelector(`.ginfo[data-id="${CSS.escape(p.id)}"]`); if (!box) return;
+  if (!d) { box.insertAdjacentHTML('beforeend', '<p class="sub gnone">O Google não tem este lugar. Ele pode ter fechado ou mudado de nome; se souber, use "Informar erro nos dados".</p>'); return; }
   const rows = [], days = d.regularOpeningHours?.weekdayDescriptions, today = (new Date().getDay() + 6) % 7;   // o Google começa na segunda
   if (d.businessStatus === 'CLOSED_PERMANENTLY') rows.push(`<li class="gwarn">${icon('clock')}<span>Fechou de vez, segundo o Google</span></li>`);
   else if (d.businessStatus === 'CLOSED_TEMPORARILY') rows.push(`<li class="gwarn">${icon('clock')}<span>Fechado temporariamente, segundo o Google</span></li>`);
@@ -1216,7 +1218,8 @@ function gSummary(d) {
 async function mapGoogle(p) {
   if (!googleOn()) return;
   let d; try { d = await googlePlace(full(p)); } catch { return; }
-  const box = document.querySelector(`#mapcard .mg[data-id="${CSS.escape(p.id)}"]`); if (!box || !d) return;
+  const box = document.querySelector(`#mapcard .mg[data-id="${CSS.escape(p.id)}"]`); if (!box) return;
+  if (!d) { box.innerHTML = '<p class="sub gnone">O Google não tem este lugar. Ele pode ter fechado ou mudado de nome.</p>'; return; }
   const g = gSummary(d), ph = d.photos?.[0];
   const status = g.closed ? `<b class="st-closed">${g.closed}</b>` : g.hasHours ? `<b class="${g.open ? 'st-open' : 'st-closed'}">${g.open ? 'Aberto' : 'Fechado'}</b> · hoje ${esc(g.todayTxt)}` : '';
   const meta = [g.price, g.rating && `${g.rating} no Google`].filter(Boolean).join(' · ');
@@ -1699,7 +1702,7 @@ $('#me').addEventListener('click', profileSheet);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // A página sabe a própria versão (BUILD é carimbado pelo publicar.sh) e compara com a publicada (version.json).
 // Se estiver atrás, recarrega: ao abrir, ao voltar para a tela e a cada 30 min, desde que nenhuma ficha esteja aberta.
-const BUILD = '20261123013901';
+const BUILD = '20261123014514';
 const publishedVersion = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j?.v ?? null).catch(() => null);
 async function checkUpdate() {
   const v = await publishedVersion();
