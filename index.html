@@ -227,6 +227,40 @@ dialog::backdrop{background:#1d1a1788}
 .visits li:first-child{border-top:0}
 .visits time{flex:none;width:72px;color:var(--ink-2)}
 .tag{flex:none;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-tint);border-radius:6px;padding:1px 6px;align-self:flex-start}
+/* cadastro: uma pergunta por tela */
+#onb{position:fixed;inset:0;z-index:2500;background:var(--ground);overflow-y:auto}
+.onb-screen{min-height:100%;max-width:520px;margin:0 auto;display:flex;flex-direction:column;padding:calc(10px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom))}
+.onb-back{display:block;width:44px;height:44px;margin:0 0 12px -12px}
+.onb-screen h1{font-family:'EB Garamond',Georgia,serif;font-weight:500;font-size:32px;line-height:1.1;text-wrap:balance}
+.onb-sub{color:var(--ink-2);margin-top:6px;font-size:16px}
+.onb-body{display:grid;gap:4px;margin-top:22px}
+.onb-in{width:100%;border:0;border-bottom:1.5px solid var(--line-2);background:none;padding:12px 0;font:inherit;font-size:18px;color:var(--ink);outline:0;border-radius:0}
+.onb-in:focus{border-bottom-color:var(--accent)}
+.onb-in::placeholder{color:var(--ink-2);opacity:.7}
+.onb-pw,.onb-user{display:flex;align-items:center;gap:4px;border-bottom:1.5px solid var(--line-2)}
+.onb-pw:focus-within,.onb-user:focus-within{border-bottom-color:var(--accent)}
+.onb-pw .onb-in,.onb-user .onb-in{border:0}
+.onb-user>span{font-size:18px;color:var(--ink-2)}
+.onb-ok{color:var(--win);opacity:0;transition:opacity .15s var(--ease)}.onb-ok.on{opacity:1}
+.onb-hint{font-size:14px;color:var(--ink-2);margin-top:10px}.onb-hint.bad{color:var(--heart)}
+.onb-rules{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:4px;font-size:14px;color:var(--ink-2)}
+.onb-rules li{display:flex;align-items:center;gap:6px}.onb-rules svg{width:16px;height:16px;opacity:.35}
+.onb-rules li.ok{color:var(--win)}.onb-rules li.ok svg{opacity:1}
+.onb-err{color:var(--heart);font-size:15px;margin-top:16px}
+.onb-foot{margin-top:auto;padding-top:28px;display:grid;gap:6px}
+.onb-cta:disabled{background:var(--line-2);color:#fff;opacity:1}
+.onb-forgot{justify-self:start;padding:0;margin-top:10px;min-height:36px}
+.onb-welcome{text-align:center;justify-content:center}
+.onb-welcome .onb-foot{margin-top:40px}
+.onb-hero{min-height:160px;display:grid;place-items:center;margin-bottom:12px}
+.onb-sig{font-family:Caveat,cursive;font-weight:600;font-size:96px;color:var(--accent);transform:rotate(-4deg)}
+.onb-num{font-family:'EB Garamond',Georgia,serif;font-weight:500;font-size:72px;color:var(--win)}
+.onb-dots{display:flex;justify-content:center;gap:8px;margin-top:28px}
+.onb-dots button{width:8px;height:8px;border-radius:50%;background:var(--line-2);padding:0}
+.onb-dots button[aria-current=true]{background:var(--accent);width:22px;border-radius:4px}
+.spin{width:20px;height:20px;border-radius:50%;border:2.5px solid #fff6;border-top-color:#fff;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.avatar{flex:none;width:36px;height:36px;margin-left:10px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-family:'EB Garamond',Georgia,serif;font-size:19px}
 #install{position:fixed;z-index:1500;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top));max-width:536px;margin:0 auto;display:flex;align-items:center;gap:10px;padding:10px 6px 10px 16px;background:var(--surface);border-radius:16px;box-shadow:0 10px 30px -8px #1d1a1766;animation:rise .35s var(--ease)}
 /* abertura: a assinatura se escreve e dissolve no ranking (~1,3s, 1x por dia) */
 #splash{position:fixed;inset:0;z-index:3000;display:grid;place-items:center;background:var(--ground);cursor:pointer}
@@ -264,7 +298,7 @@ dialog::backdrop{background:#1d1a1788}
 })();
 </script>
 <header class="top">
-  <div class="wrap brand"><h1>Lia</h1><span id="count"></span></div>
+  <div class="wrap brand"><h1>Lia</h1><span id="count"></span><button id="me" class="avatar" hidden aria-label="Sua conta"></button></div>
   <div class="wrap" id="seg"></div>
 </header>
 <main id="view"></main>
@@ -284,6 +318,8 @@ dialog::backdrop{background:#1d1a1788}
 <script type="module">
 import { startSession, current, done, answer, undo, finalValue, scores, community } from './ranking.mjs';
 import { parseHours, hoursStatus, hoursWeek } from './hours.mjs';
+import { configured, currentUser, myProfile, signOut, onPasswordRecovery } from './conta.mjs';
+import { startOnboarding } from './onboarding.mjs';
 
 const CATS = { RES: 'Restaurantes', CAF: 'Cafés e padarias', BAR: 'Bares' };
 // --- estado (localStorage) ---
@@ -672,6 +708,28 @@ $('#view').addEventListener('input', e => { if (e.target.id === 'q') { query = e
 
 render();
 fetchPlaces();
+
+// --- conta: sem sessão, abre o cadastro; com sessão, mostra a inicial no topo ---
+let profile = null;
+async function showAccount() {
+  try { profile = await myProfile(); } catch { profile = null; }   // offline: segue sem o nome
+  const me = $('#me'); me.hidden = false;
+  me.textContent = (profile?.first_name || '?').trim()[0].toUpperCase();
+}
+async function initAccount() {
+  if (!configured) return;   // sem servidor configurado, o app segue só local (desenvolvimento)
+  onPasswordRecovery(() => startOnboarding({ mode: 'recovery', onDone: showAccount }));
+  const user = await currentUser().catch(() => 'offline');
+  if (user === 'offline') return;   // sem internet e sem a biblioteca guardada: deixa usar o app, pede a conta na próxima
+  if (user) showAccount(); else startOnboarding({ onDone: showAccount });
+}
+initAccount();
+$('#me').addEventListener('click', () => sheet(`<h2>${esc([profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Sua conta')}</h2>
+  ${profile ? `<p class="sub">@${esc(profile.username)}</p>` : ''}
+  <div class="actions"><button class="btn secondary" data-a="logout">Sair da conta</button></div>`, async e => {
+  if (!e.target.closest('[data-a="logout"]')) return;
+  await signOut().catch(() => {}); dlg.close(); $('#me').hidden = true; profile = null; startOnboarding({ onDone: showAccount });
+}));
 
 // --- PWA: service worker (atualiza sozinho) e convite para instalar ---
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
