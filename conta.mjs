@@ -58,7 +58,8 @@ export async function usernameAvailable(name) {
 export async function signUp({ email, password, firstName, lastName, username }) {
   const { data, error } = await (await client()).auth.signUp({
     email, password,
-    options: { data: { username: username.toLowerCase(), first_name: firstName, last_name: lastName } },
+    // volta para o app (e não para a raiz do GitHub Pages) depois do link de confirmação
+    options: { emailRedirectTo: location.origin + location.pathname, data: { username: username.toLowerCase(), first_name: firstName, last_name: lastName } },
   });
   if (error) throw error;
   // e-mail já cadastrado e confirmado: o Supabase devolve um usuário sem identidades em vez de erro
