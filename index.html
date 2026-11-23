@@ -1048,7 +1048,7 @@ function profileSheet() {
     ${syncUser ? `<p class="syncline" data-s="${syncState}">${SYNC_TEXT[syncState] || ''}</p>` : ''}
     <div class="stats"><div><b class="cond">${db.ranked.length}</b><span>lugares</span></div><div><b class="cond">${yearPlaces}</b><span>em ${year}</span></div><div><b class="cond">${vs.length}</b><span>visitas</span></div><div><b class="cond">${bairros}</b><span>bairros</span></div></div>
     ${syncUser ? `<div class="box"><h3>Amigos</h3>
-      <div class="fcount"><button data-a="flist" data-k="followers"><b class="cond">${social.followers.length}</b> seguidores</button><button data-a="flist" data-k="following"><b class="cond">${social.following.filter(f => f.status === 'accepted').length}</b> seguindo</button></div>
+      <div class="fcount"><button data-a="flist" data-k="followers"><b class="cond">${social.followers.length}</b> seguidor${social.followers.length === 1 ? '' : 'es'}</button><button data-a="flist" data-k="following"><b class="cond">${social.following.filter(f => f.status === 'accepted').length}</b> seguindo</button></div>
       ${social.requests.length ? `<p class="lbl" style="margin-top:12px">Pedidos para seguir você</p><ol class="simil">${social.requests.map(u => `<li class="req"><button data-friend="${u.id}">${uAvatar(u)}<span class="t"><b>${esc(uName(u))}</b><small>@${esc(u.username)}</small></span></button>
         <button class="btn primary sm" data-a="accept" data-id="${u.id}">Aceitar</button><button class="btn quiet sm" data-a="reject" data-id="${u.id}">Recusar</button></li>`).join('')}</ol>` : ''}
       <button class="btn secondary wide" data-a="findfriends" style="margin-top:12px">${icon('search')}Encontrar amigos</button></div>` : ''}
@@ -1143,7 +1143,7 @@ async function friendSheet(id) {
   const want = (v.want || []).map(byId).filter(Boolean);
   const locked = what => `<p class="sub lock">${what} de @${esc(u.username)} ${v.follow === 'accepted' ? 'não estão abertos.' : 'aparecem quando ela aceitar seu pedido.'}</p>`;
   sheet(`<div class="prof">${uAvatar(u).replace('class="pp', 'class="pp big')}<div style="flex:1;min-width:0"><h2>${esc(uName(u))}</h2><p class="sub">@${esc(u.username)}</p></div></div>
-    <div class="fhead"><span><b class="cond">${v.followers}</b> seguidores</span><span><b class="cond">${v.following}</b> seguindo</span>${followBtn}</div>
+    <div class="fhead"><span><b class="cond">${v.followers}</b> seguidor${v.followers == 1 ? '' : 'es'}</span><span><b class="cond">${v.following}</b> seguindo</span>${followBtn}</div>
     ${v.follows_me === 'pending' ? `<div class="box req-box"><p><b>${esc(u.first_name || '@' + u.username)}</b> quer seguir você.</p><button class="btn primary sm" data-f="accept">Aceitar</button><button class="btn quiet sm" data-f="reject">Recusar</button></div>` : ''}
     ${can.ranking ? (lists || '<p class="sub" style="margin-top:14px">Ainda não ranqueou nenhum lugar.</p>') : locked('O ranking e as notas')}
     ${can.want ? (want.length ? `<h3 class="group" style="padding:0">Quer ir · ${want.length}</h3><ol class="table">${want.map(p => `<li><button class="row" data-fplace="${esc(p.id)}">${rowBody(p)}</button></li>`).join('')}</ol>` : '') : ''}`, async e => {
@@ -1638,7 +1638,7 @@ $('#me').addEventListener('click', profileSheet);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // A página sabe a própria versão (BUILD é carimbado pelo publicar.sh) e compara com a publicada (version.json).
 // Se estiver atrás, recarrega: ao abrir, ao voltar para a tela e a cada 30 min, desde que nenhuma ficha esteja aberta.
-const BUILD = '20261123011231';
+const BUILD = '20261123011414';
 const publishedVersion = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j?.v ?? null).catch(() => null);
 async function checkUpdate() {
   const v = await publishedVersion();
