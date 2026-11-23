@@ -1,0 +1,1832 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F6EEDF">
+<title>Lia</title>
+<link rel="preconnect" href="https://places.googleapis.com" crossorigin>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Lia">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css">
+<style>
+/* fonte 11: EB Garamond (logo, notas, títulos) + Jost (texto); arquivos locais para funcionar offline */
+@font-face{font-family:'EB Garamond';src:url(fonts/eb-garamond.woff2) format('woff2');font-weight:400 800;font-style:normal;font-display:swap}
+@font-face{font-family:'EB Garamond';src:url(fonts/eb-garamond-italic.woff2) format('woff2');font-weight:400 800;font-style:italic;font-display:swap}
+@font-face{font-family:Caveat;src:url(fonts/caveat.woff2) format('woff2');font-weight:400 700;font-display:swap}
+@font-face{font-family:Jost;src:url(fonts/jost.woff2) format('woff2');font-weight:300 700;font-display:swap}
+:root{
+  color-scheme:light;
+  /* combinação H: azul-tinta sobre papel kraft, terracota no coração */
+  --ground:#F6EEDF;--surface:#FFFBF3;--ink:#2E2A24;--ink-2:#6F665A;--line:#E7DCC8;--line-2:#CDBEA5;--track:#ECE1CD;
+  --accent:#1F3A93;--accent-deep:#172C70;--accent-tint:#E2E7F5;--heart:#C8553D;
+  --win:#2F7A4F;--mid:#B07A1E;--low:#7A7266;
+  --ease:cubic-bezier(.16,1,.3,1);
+  --ease-in-out:cubic-bezier(0.77,0,0.175,1);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{margin:0;display:flex;flex-direction:column;font:16px/1.45 Jost,system-ui,sans-serif;background:var(--ground);color:var(--ink);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;caret-color:var(--accent)}
+::selection{background:var(--accent-tint);color:var(--ink)}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;text-align:inherit}
+h1,h2,h3,p,ol{margin:0;padding:0}
+ol{list-style:none}
+svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+svg.i.fill{fill:currentColor}
+.wrap{width:100%;max-width:560px;margin:0 auto;padding:0 16px}
+.cond{font-family:'EB Garamond',Georgia,serif;font-weight:500}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:6px}
+
+/* shell */
+.top{background:var(--ground);padding-top:env(safe-area-inset-top);flex:none}
+.brand{display:flex;align-items:center;gap:8px;height:56px}
+.brand h1{font-family:Caveat,cursive;font-size:40px;font-weight:600;line-height:1;color:var(--accent);transform:rotate(-4deg);transform-origin:left center;margin-top:2px}
+.brand span{margin-left:auto;color:var(--ink-2);font-size:14px}
+.seg{display:flex;background:var(--track);border-radius:12px;padding:3px;margin-bottom:10px}
+.seg button{flex:1 1 auto;padding:0 8px;white-space:nowrap;height:38px;border-radius:9px;text-align:center;font-size:14px;font-weight:600;color:var(--ink-2);transition:background .2s var(--ease),color .2s}
+.seg button[aria-pressed=true]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px #1d1a1722}
+main{flex:1;overflow-y:auto;overscroll-behavior:contain;scrollbar-color:var(--line-2) transparent;padding-bottom:104px}
+/* barra flutuante: pílula com os destinos e o botão de ação num círculo ao lado */
+nav{position:fixed;z-index:1000;left:0;right:0;bottom:calc(14px + env(safe-area-inset-bottom));pointer-events:none}
+nav .wrap{display:flex;align-items:center;gap:10px;max-width:440px}
+nav .dest{flex:1;display:grid;grid-template-columns:repeat(4,1fr);height:64px;padding:6px;border-radius:32px;background:var(--ink);box-shadow:0 10px 28px -8px #1d1a1788;pointer-events:auto}
+nav .dest button{display:grid;justify-items:center;align-content:center;gap:1px;border-radius:26px;font-size:11px;font-weight:600;color:#b9b1a7;text-align:center;transition:background .25s var(--ease),color .2s}
+nav .dest svg{width:22px;height:22px}
+nav .dest button[aria-current=page]{background:#ffffff1f;color:#fff}
+nav .plus{flex:none;width:64px;height:64px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;box-shadow:0 10px 24px -8px #1F3A93aa;pointer-events:auto;transition:transform .2s var(--ease),background .2s}
+nav .plus:active{transform:scale(.93);background:var(--accent-deep)}
+nav .plus svg{width:28px;height:28px;stroke-width:2.6}
+svg.i.hand{stroke-width:2.1}
+nav .plus svg.hand{stroke-width:2.2}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+
+/* tabela */
+.thead{display:grid;grid-template-columns:34px 1fr auto;gap:12px;padding:14px 16px 8px;font-size:12px;letter-spacing:.08em;color:var(--ink-2)}
+.table{background:var(--surface);border-block:1px solid var(--line)}
+.row{display:flex;align-items:center;gap:12px;width:100%;min-height:68px;padding:10px 16px;border-bottom:1px solid var(--line)}
+.table>li:last-child .row,.table>li:last-child.row{border-bottom:0}
+button.row:active,.row-main:active{background:var(--ground)}
+.row-main{display:flex;align-items:center;gap:12px;flex:1;min-width:0;min-height:48px}
+.pos{flex:none;width:34px;height:34px;border-radius:8px;display:grid;place-items:center;color:#fff;font-size:19px}
+.t{flex:1;min-width:0}
+.t b{display:block;font-weight:500;font-size:16px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.t small{display:block;font-size:13.5px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pts{font-size:28px;line-height:1;flex:none}
+.z-win{--z:var(--win)}.z-mid{--z:var(--mid)}.z-low{--z:var(--low)}
+.pos[class*=z-],.legend i,.pin[class*=z-]{background:var(--z)}
+.pts[class*=z-]{color:var(--z)}
+.zline{height:0;border-top:2px dashed var(--line-2)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;padding:14px 16px 28px;font-size:13px;color:var(--ink-2)}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px}
+.row.new{animation:land 1.6s var(--ease)}
+@keyframes land{from{background:var(--accent-tint)}}
+
+/* vazio */
+.empty{padding:28px 16px 32px}
+.empty h2{font-family:'EB Garamond',Georgia,serif;font-size:28px;line-height:1.15;font-weight:500;text-wrap:balance}
+.empty p{margin:8px 0 20px;color:var(--ink-2);max-width:38ch}
+.ghost{margin:0 0 24px}
+.ghost li{display:flex;align-items:center;gap:12px;height:56px;border-bottom:2px dashed var(--line-2);color:var(--ink-2);font-size:15px}
+.ghost .pos{background:none;border:2px dashed var(--line-2);color:var(--ink-2)}
+h2.group{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);padding:22px 16px 8px}
+
+/* botões */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:50px;padding:0 22px;border-radius:12px;font-weight:700;font-size:16px;transition:transform .15s var(--ease),background .15s}
+.btn:active{transform:scale(.98)}
+.btn.primary{background:var(--accent);color:#fff}
+.btn.primary:active{background:var(--accent-deep)}
+.btn.secondary{background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--line-2)}
+.btn.secondary[aria-pressed=true]{background:var(--ink);color:#fff;box-shadow:none}
+.btn.quiet{color:var(--ink-2);padding:0 8px;font-weight:600}
+.btn.danger{color:var(--heart)}
+.btn.wide{width:100%}
+.btn[hidden]{display:none}
+.pill{flex:none;min-height:40px;padding:0 16px;border-radius:999px;background:var(--ink);color:#fff;font-weight:700;font-size:14px}
+.iconbtn{flex:none;width:44px;height:44px;display:grid;place-items:center;border-radius:50%;color:var(--ink-2)}
+.iconbtn[aria-pressed=true]{color:var(--accent)}
+
+/* buscar */
+.band{background:var(--ground);padding:0 0 12px;position:sticky;top:0;z-index:2}
+.field{display:flex;align-items:center;gap:10px;height:50px;padding:0 14px;border-radius:12px;background:var(--surface);color:var(--ink-2);box-shadow:inset 0 0 0 1.5px var(--line-2)}
+.field input{flex:1;min-width:0;height:100%;border:0;outline:0;background:none;font:inherit;font-size:17px;color:var(--ink)}
+.field input::placeholder{color:var(--ink-2)}
+.field:focus-within{box-shadow:inset 0 0 0 2px var(--ink)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding:0 16px}
+.chip{min-height:40px;padding:0 14px;border-radius:999px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line-2);font-size:15px;font-weight:550}
+.chip:active{background:var(--line)}
+.msg{padding:28px 16px;color:var(--ink-2)}
+.msg .btn{margin-top:14px}
+.more{padding:20px 16px 32px}
+
+/* mapa */
+main.v-mapa{overflow:hidden;position:relative;padding-bottom:0}
+#map{height:100%;background:var(--ground);font:inherit}
+.pin{display:grid;place-items:center;width:32px;height:32px;border-radius:8px;border:2px solid #fff;color:#fff;font-size:16px;box-shadow:0 3px 8px -2px #0007}
+.pin.want{background:#fff;color:var(--accent);border-radius:50%}
+.pin.want svg{width:16px;height:16px}
+.maphint{position:absolute;z-index:1050;left:50%;top:12px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:8px 14px;border-radius:999px;font-size:14px;font-weight:600;white-space:nowrap;box-shadow:0 4px 12px -4px #0006;pointer-events:none}
+.maphint[hidden]{display:none}
+.maplibregl-ctrl-bottom-left{bottom:calc(88px + env(safe-area-inset-bottom));left:6px}
+.maplibregl-map{font:inherit}
+.ring{display:block;width:48px;height:48px;border-radius:50%;border:3px solid var(--accent);pointer-events:none}
+.pin{cursor:pointer}
+.me{display:block;width:18px;height:18px;border-radius:50%;background:#2456e6;border:3px solid #fff;box-shadow:0 0 0 7px #2456e633}
+.mapbtns{position:absolute;z-index:1050;right:12px;bottom:calc(96px + env(safe-area-inset-bottom));display:grid;gap:10px}
+.mapbtns button{width:50px;height:50px;border-radius:50%;background:var(--surface);display:grid;place-items:center;box-shadow:0 4px 14px -4px #1d1a1766}
+.mapbtns button:active{background:var(--track)}
+#mapcard{position:absolute;z-index:1100;left:12px;right:12px;bottom:calc(92px + env(safe-area-inset-bottom));max-width:536px;margin:0 auto;background:var(--surface);border-radius:20px;padding:8px 8px 14px 16px;box-shadow:0 12px 32px -8px #1d1a1777;animation:rise .3s var(--ease)}
+#mapcard::before{content:'';display:block;width:36px;height:4px;border-radius:2px;background:var(--line-2);margin:0 auto 6px}
+/* ficha estilo app de mapas: nome, nota, status, ações em pílulas */
+.ph{display:flex;align-items:flex-start;gap:8px}
+.ph .t{padding-top:2px}
+.ph h2{font-family:'EB Garamond',Georgia,serif;font-size:25px;line-height:1.15;font-weight:500;text-wrap:balance}
+.ph .open-sheet{flex:1;min-width:0;text-align:left}
+.pline{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin-top:4px;font-size:14.5px;color:var(--ink-2)}
+.pline .pts{font-size:17px}
+.pline .love{margin:0}
+.st-open{color:var(--win);font-weight:650}.st-closed{color:var(--heart);font-weight:650}
+.cells{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 8px 0 0}
+.cell{display:grid;justify-items:center;align-content:center;gap:4px;min-height:64px;padding:8px 4px;border-radius:14px;background:var(--track);font-size:13.5px;font-weight:650;color:var(--ink);text-decoration:none;text-align:center;transition:transform .15s var(--ease)}
+.cell:active{transform:scale(.96)}
+.cell svg{width:22px;height:22px}
+.cell.primary{background:var(--accent);color:#fff}
+.cell[aria-pressed=true]{background:var(--ink);color:#fff}
+.cell[data-a=love][aria-pressed=true]{background:var(--heart)}
+.sheet .cells{margin:16px 0 0}
+.info{margin-top:6px}
+.info li{display:flex;gap:14px;align-items:flex-start;padding:13px 0;border-top:1px solid var(--line);font-size:15px}
+.info li:first-child{border-top:0}
+.info svg{width:20px;height:20px;color:var(--ink-2);margin-top:1px}
+.info a{color:var(--ink);text-decoration:none;overflow-wrap:anywhere}
+.info details summary{list-style:none;cursor:pointer}
+.info li>span,.info li>a,.info details{font-size:15px;line-height:1.4}
+.info details summary::-webkit-details-marker{display:none}
+.week{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;margin-top:8px;color:var(--ink-2);font-size:14px}
+.week .today{color:var(--ink);font-weight:650}
+#mapcard:not([hidden])~.mapbtns{display:none}
+.cardhead{display:flex;align-items:center;gap:12px}
+.cardacts{display:flex;gap:8px;margin:12px 4px 0 0}
+.cardacts .btn{flex:1;min-height:46px;padding:0 10px;font-size:15px;white-space:nowrap}
+.cardacts a.btn{text-decoration:none;color:var(--ink)}
+
+/* folha */
+dialog{z-index:2000;border:0;padding:0;margin:auto auto 0;width:100%;max-width:560px;max-height:92dvh;border-radius:22px 22px 0 0;background:var(--ground);color:var(--ink);box-shadow:0 -8px 40px -8px #0006}
+dialog[open]{animation:rise .35s var(--ease)}
+@keyframes rise{from{transform:translateY(28px);opacity:.5}}
+dialog::backdrop{background:#1d1a1788}
+@media (min-width:640px){dialog{margin:auto;border-radius:22px}}
+.sheet{position:relative;padding:22px 20px calc(20px + env(safe-area-inset-bottom))}
+.sheet .x{position:absolute;top:10px;right:10px}
+.sheet h2{font-family:'EB Garamond',Georgia,serif;font-size:26px;line-height:1.15;font-weight:500;padding-right:40px;text-wrap:balance}
+.sub{color:var(--ink-2);font-size:15px;margin-top:2px}
+.phead{display:flex;align-items:center;gap:14px;padding-right:36px}
+.phead h2{padding:0}
+.stat{display:flex;align-items:baseline;gap:12px;margin:18px 0 4px}
+.stat .pts{font-size:56px}
+.note{margin-top:10px;padding:12px 14px;background:var(--surface);border-radius:12px;color:var(--ink)}
+.actions{display:grid;gap:10px;margin-top:20px}
+.duel{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin:18px 0 8px}
+.side{display:grid;justify-items:center;align-content:center;gap:6px;min-height:176px;padding:16px 10px;border-radius:16px;background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--line-2);text-align:center;transition:transform .15s var(--ease),box-shadow .15s}
+.side:active{transform:scale(.97);box-shadow:inset 0 0 0 3px var(--accent)}
+.side b{font-size:16px;line-height:1.2;font-weight:700;text-wrap:balance;overflow-wrap:anywhere}
+.side small{font-size:13px;color:var(--ink-2)}
+.side.in{animation:enter .45s var(--ease)}
+@keyframes enter{from{transform:translateX(36px);opacity:.3}}
+.vs{font-size:22px;color:var(--ink-2)}
+.bar{display:flex;justify-content:space-between;margin:6px -8px 0}
+.bar .btn{min-height:44px;font-size:15px}
+.bar .btn:disabled{opacity:.4}
+.result{display:grid;justify-items:center;text-align:center;gap:4px;padding-top:6px}
+.result h2{padding:0;margin-top:6px}
+.result .pts{font-size:96px;margin:4px 0}
+.lbl{display:block;font-size:14px;font-weight:650;margin:18px 0 6px}
+.input,textarea{width:100%;padding:12px 14px;border:1.5px solid var(--line-2);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;resize:vertical}
+.input:focus,textarea:focus{outline:0;border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.sheet .btn.wide{margin-top:16px}
+/* amei, comunidade, diário */
+.love{color:var(--heart);width:16px;height:16px;vertical-align:-2px;margin-left:4px}
+.t b .love{display:inline}
+.heart[aria-pressed=true]{color:var(--heart)}
+.box{margin-top:18px;padding:14px;background:var(--surface);border-radius:14px}
+.box h3{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);margin-bottom:8px}
+.cscore{display:flex;align-items:baseline;gap:10px}
+.cscore .pts{font-size:40px}
+.hist{display:grid;grid-template-columns:repeat(10,1fr);align-items:end;gap:3px;height:44px;margin-top:12px}
+.hist i{display:block;background:var(--line-2);border-radius:3px 3px 0 0;min-height:2px}
+.hist i.on{background:var(--accent)}
+.hist-x{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-2);margin-top:4px}
+.visits li{border-top:1px solid var(--line);font-size:14.5px}
+.visits li>button{display:flex;align-items:flex-start;gap:10px;width:100%;padding:10px 0;text-align:left}
+.visits .vt{flex:1;min-width:0}
+.visits li svg{width:16px;height:16px;color:var(--ink-2);flex:none;margin-top:2px}
+.visits li:first-child{border-top:0}
+.visits time{flex:none;width:72px;color:var(--ink-2)}
+.tag{flex:none;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-tint);border-radius:6px;padding:1px 6px;align-self:flex-start}
+/* ficha nova (proposta) */
+.cover{margin:-20px -20px 14px;height:210px;position:relative;background:var(--track);border-radius:24px 24px 0 0;overflow:hidden}
+.cover:empty{background:linear-gradient(90deg,var(--track),var(--surface),var(--track));background-size:200% 100%;animation:skel 1.2s ease-in-out infinite alternate}
+.cover img{width:100%;height:100%;object-fit:cover;display:block}
+.cover span{position:absolute;right:10px;bottom:8px;font-size:11px;color:#fff;text-shadow:0 1px 3px #000a}
+.ph2{position:relative;padding-right:44px}
+.ph2 h2{font-family:'EB Garamond',Georgia,serif;font-size:30px;line-height:1.1;font-weight:500;text-wrap:balance}
+.pmeta{margin:6px 0 0;color:var(--ink-2);font-size:15px}
+.gstat{margin:4px 0 0;font-size:15px;color:var(--ink-2)}.gstat:empty{display:none}
+.hshare.top{position:absolute;right:0;top:0}
+.hero{display:flex;align-items:center;gap:16px;margin:18px 0 2px;padding:14px 16px;background:var(--surface);border-radius:18px}
+.hero .big{font-family:'EB Garamond',Georgia,serif;font-size:64px;line-height:.9;font-weight:500;color:var(--z)}
+.sheet .x{z-index:2}.sheet:has(.cover:not([hidden])) .x{background:#fffbf3e6;border-radius:50%}
+.hpos{flex:1;display:grid;gap:2px}.hpos b{font-size:19px}.hpos span{color:var(--ink-2);font-size:14px}
+.cline{margin:18px 2px 0;font-size:14px;color:var(--ink-2)}.cline b{color:var(--ink)}
+.duo{display:flex;gap:8px;margin-top:16px}.duo .btn{flex:1;min-height:46px;font-size:15px}
+/* dados do Google */
+#mapcard .mg:empty{display:none}
+.skel{display:block;height:12px;border-radius:6px;background:var(--track);margin:6px 0;width:180px;animation:skel 1.2s ease-in-out infinite alternate}
+.skel.short{width:120px}.skel.sq{flex:none;width:64px;height:64px;border-radius:12px;margin:0}
+@keyframes skel{from{opacity:.55}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.skel{animation:none}}
+.gnone{font-size:13px;margin:10px 2px 0}#mapcard .gnone{margin:0}
+#mapcard .mg{display:flex;gap:12px;align-items:center;margin:2px 8px 10px 0}
+#mapcard .mg img{flex:none;width:64px;height:64px;border-radius:12px;object-fit:cover;background:var(--track)}
+#mapcard .mg p{margin:0;font-size:14px;line-height:1.35}#mapcard .mg .sub{font-size:13px}
+#mapcard .mg .gattr{text-align:left;margin-top:2px;font-size:10px}
+.gphoto{margin:14px 0 0;border-radius:16px;overflow:hidden;background:var(--track);aspect-ratio:16/9;position:relative}
+.gphoto img{width:100%;height:100%;object-fit:cover;display:block}
+.gphoto figcaption{position:absolute;right:8px;bottom:6px;font-size:11px;color:#fff;text-shadow:0 1px 3px #0008}.gphoto figcaption a{color:#fff}
+.gattr{margin:8px 0 0;font:500 11px Roboto,Arial,sans-serif;color:#5f6368;text-align:right}
+.gicon{display:inline-grid;place-items:center;width:18px;font-weight:700;color:var(--ink-2)}
+.gwarn span{color:var(--heart);font-weight:600}
+/* avisos */
+.pushrow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;font-weight:600;font-size:15px}
+/* amigos */
+.dot{position:relative}
+.dot::after{content:'';position:absolute;top:2px;right:2px;width:10px;height:10px;border-radius:50%;background:var(--heart);box-shadow:0 0 0 2px var(--ground)}
+nav .dest button.dot::after{top:8px;right:calc(50% - 18px);box-shadow:0 0 0 2px var(--ink)}
+.fcount{display:flex;gap:18px}.fcount button{font-size:15px;color:var(--ink-2)}.fcount b{font-size:20px;color:var(--ink);margin-right:2px}
+.simil li.req{display:flex;align-items:center;gap:8px}.simil li.req>button:first-child{flex:1;min-width:0}
+.simil button .pp{margin-right:10px}
+.btn.sm{height:36px;padding:0 14px;font-size:14px;flex:none}
+.privrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:15px}
+.privrow:first-of-type{border-top:0}
+.privrow select{font:inherit;font-size:14px;color:var(--accent);background:transparent;border:0;text-align:right;max-width:55%}
+.pp.big{width:58px;height:58px;font-size:30px}
+.fhead{display:flex;align-items:center;gap:16px;margin:14px 0 6px;font-size:15px;color:var(--ink-2)}.fhead b{font-size:19px;color:var(--ink);margin-right:2px}.fhead .btn{margin-left:auto}
+dialog .group{margin-top:22px}
+.req-box{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.req-box p{flex:1 1 100%;margin:0 0 4px}
+.lock{margin-top:16px;padding:14px;border-radius:12px;background:var(--surface)}
+.fat-list{display:flex;flex-wrap:wrap;gap:8px}
+.fat-list button{display:flex;align-items:center;gap:8px;padding:6px 10px 6px 6px;border-radius:22px;background:var(--ground);font-size:14px}
+.fat-list .pp{width:26px;height:26px;font-size:14px}
+.fitem{display:flex;align-items:center;padding-left:16px}.fitem .row{flex:1;min-width:0;padding-left:10px}
+.newdot{flex:none;width:9px;height:9px;border-radius:50%;background:var(--heart)}
+.loading{display:grid;place-items:center;padding:48px 0}
+/* começo guiado */
+.qs-field{margin:14px 0 6px}
+.qs-list{max-height:52vh;overflow:auto;margin:0 -4px;padding:0 4px}
+.row.qs{gap:12px}
+.qs-box{flex:none;width:24px;height:24px;border-radius:7px;box-shadow:inset 0 0 0 1.5px var(--line-2);display:grid;place-items:center;color:transparent;transition:background-color .15s ease,color .15s ease}
+.qs-box svg{width:16px;height:16px}
+.row.qs[aria-pressed="true"] .qs-box{background:var(--accent);box-shadow:none;color:#fff}
+.qs-foot .btn:disabled{opacity:.45}
+.qs-foot{position:sticky;bottom:0;padding-top:12px;background:linear-gradient(transparent,var(--ground) 30%)}
+/* LGPD no perfil */
+.legal{display:grid;gap:2px}
+.legal button,.legal a{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line);font-size:15px;color:var(--ink);text-decoration:none;text-align:left}
+.legal>:first-child{border-top:0}
+.legal svg{width:18px;height:18px;color:var(--ink-2)}
+.legal a{color:var(--accent);font-size:14px}
+.btn.danger-fill{background:var(--heart)}.btn.danger-fill:disabled{opacity:.45}
+/* sincronização */
+.syncline{margin-top:10px;font-size:13px;color:var(--win)}.syncline::before{content:'● ';font-size:10px}
+.syncline[data-s=saving]{color:var(--ink-2)}.syncline[data-s=offline]{color:var(--mid)}
+/* idas marcadas */
+.okmsg{margin-top:12px;padding:10px 12px;border-radius:12px;background:#E3EFE6;color:var(--win);font-weight:600;font-size:14.5px}
+.toast{position:fixed;z-index:2600;left:50%;bottom:calc(100px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;font-weight:600;font-size:15px;animation:rise .25s var(--ease);transition:opacity .3s}
+.toast.out{opacity:0}
+.plan-when{color:var(--accent);font-weight:600}
+.iconbtn.on{color:var(--accent)}
+.row>svg.i{color:var(--accent);width:22px;height:22px}
+.cells.two{grid-template-columns:1fr 1fr;margin:12px 0 0}
+.cd.planned{box-shadow:inset 0 0 0 1.5px var(--accent);color:var(--accent);font-weight:600}
+/* perfil, listas, parecidos, filtros */
+.prof{display:flex;align-items:center;gap:14px;padding-right:36px}
+.avatar.big{width:58px;height:58px;font-size:30px;margin:0;font-style:normal}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:16px;text-align:center}
+.stats b{display:block;font-size:30px;line-height:1.1}.stats span{font-size:12px;color:var(--ink-2)}
+.favs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;align-items:start}   /* minmax(0,…): foto ainda carregando não encolhe a coluna */
+.fav{display:grid;gap:4px;min-width:0;text-align:center}
+.fav img,.fav>span,.fav.empty{display:grid;width:100%;aspect-ratio:3/4;border-radius:10px;object-fit:cover;background:var(--track);display:grid;place-items:center;font-size:34px;color:var(--z)}
+.fav.empty{box-shadow:inset 0 0 0 1.5px var(--line-2);background:var(--surface);color:var(--ink-2)}
+.fav small{font-size:11.5px;line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.nhist{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;height:90px;align-items:end}
+.nhist div{display:grid;grid-template-rows:1fr auto;height:100%;text-align:center}
+.nhist i{align-self:end;display:block;min-height:3px;border-radius:4px 4px 0 0;background:var(--z)}
+.nhist span{font-size:11px;color:var(--ink-2);margin-top:3px}
+.simil li{border-top:1px solid var(--line)}.simil li:first-child{border-top:0}
+.simil li>button{display:flex;align-items:center;gap:10px;width:100%;padding:10px 0;text-align:left}
+.simil .pts{font-size:22px}
+.simil li.req>.btn{width:auto;flex:none;padding:0 14px;justify-content:center}
+.lrem{display:flex;align-items:center}.lrem>button:first-child{flex:1}
+.lists{display:grid;margin-top:12px}
+.lrow{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line);text-align:left}
+.lrow:first-child{border-top:0}.lrow .pts{font-size:22px}
+.chk{flex:none;width:24px;height:24px;border-radius:7px;box-shadow:inset 0 0 0 1.5px var(--line-2);display:grid;place-items:center;color:transparent}
+.chk svg{width:16px;height:16px}
+.lrow[aria-pressed=true] .chk{background:var(--accent);box-shadow:none;color:#fff}
+.row-inp{display:flex;gap:8px}.row-inp .input{flex:1}
+.tagc{padding:0 14px}
+.chips.filt{padding:12px 16px 4px}
+.chip[aria-pressed=true]{background:var(--ink);color:#fff;box-shadow:none}
+.story{margin-top:14px}
+/* tendência e nota por visita */
+.trend{font-size:12px;font-weight:600;border-radius:6px;padding:2px 7px;margin-left:2px}
+.trend.up{color:var(--win);background:#E3EFE6}.trend.down{color:var(--heart);background:#F6E1DA}
+.vn{font-size:20px;line-height:1;width:24px;text-align:center;flex:none;color:var(--z)}
+.arr{font-size:12px;font-weight:700;width:12px;flex:none;margin-top:3px}.arr.up{color:var(--win)}.arr.down{color:var(--heart)}
+.prevnota{margin-top:12px;font-size:14px;color:var(--ink-2)}.prevnota b{font-size:18px;color:var(--z)}
+/* calendário do Diário */
+.cal{margin:12px 16px 4px;padding:12px;background:var(--surface);border-radius:16px}
+.calh{display:flex;align-items:center;justify-content:space-between}
+.calh b{font-family:'EB Garamond',Georgia,serif;font-weight:500;font-size:20px}
+.calh .iconbtn:disabled{opacity:.3}
+.calw,.calg{display:grid;grid-template-columns:repeat(7,1fr);text-align:center}
+.calw span{font-size:11px;font-weight:600;color:var(--ink-2);padding:6px 0}
+.calg{row-gap:4px}
+.cd{position:relative;justify-self:center;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:14px;color:var(--ink-2)}
+.cd.has{background:var(--z);color:#fff;font-weight:600}
+.cd.today{box-shadow:inset 0 0 0 1.5px var(--ink)}.cd.has.today{box-shadow:0 0 0 2px var(--surface),0 0 0 3.5px var(--ink)}
+.cd.sel{box-shadow:0 0 0 2px var(--surface),0 0 0 3.5px var(--accent)}
+.cd small{position:absolute;top:-3px;right:-3px;min-width:15px;height:15px;border-radius:8px;background:var(--ink);color:#fff;font-size:9.5px;display:grid;place-items:center}
+.calsel{padding:10px 16px 0;font-size:14px;color:var(--ink-2)}.calsel .link{color:var(--accent);font-weight:600}
+/* fotos */
+.shots{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.shot{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--track)}
+.shot img{width:100%;height:100%;object-fit:cover;display:block}
+.shot.loading{display:grid;place-items:center}
+.shot.add{display:grid;place-items:center;align-content:center;gap:2px;font-size:12px;font-weight:600;color:var(--ink-2);box-shadow:inset 0 0 0 1.5px var(--line-2);background:var(--surface)}
+.shot.add svg{width:20px;height:20px}
+.shot-x{position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:#1d1a17b3;color:#fff;display:grid;place-items:center}
+.shot-x svg{width:14px;height:14px}
+.spin.dark{border-color:var(--line-2);border-top-color:var(--accent)}
+.gallery{display:grid;gap:4px;height:200px;margin-top:16px;border-radius:14px;overflow:hidden}
+.gallery.n2{grid-template-columns:1fr 1fr}
+.gallery.n3{grid-template-columns:2fr 1fr;grid-template-rows:1fr 1fr}.gallery.n3 .g:first-child{grid-row:span 2}
+.gallery .g{position:relative;background:var(--track);padding:0;min-height:0}
+.gallery img{width:100%;height:100%;object-fit:cover;display:block}
+.gmore{position:absolute;inset:0;display:grid;place-items:center;background:#1d1a1799;color:#fff;font-size:22px;font-weight:600}
+.rthumb{flex:none;width:44px;height:44px;border-radius:8px;object-fit:cover;background:var(--track)}
+#viewer{width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;padding:0;border:0;background:#0d0c0b;color:#fff;border-radius:0}
+#viewer::backdrop{background:#000}
+#viewer img{width:100%;height:100%;object-fit:contain}
+#viewer .vx{position:absolute;top:calc(10px + env(safe-area-inset-top));right:10px;color:#fff;background:#ffffff1f}
+#viewer .vcount{position:absolute;top:calc(20px + env(safe-area-inset-top));left:16px;font-size:14px;opacity:.8}
+#viewer .vnav{position:absolute;top:15%;bottom:15%;width:30%}#viewer .prev{left:0}#viewer .next{right:0}
+/* nota de 1 a 10 */
+.notas{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:12px}
+.notas button{display:grid;place-items:center;text-align:center;height:58px;border-radius:14px;background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--line-2);font-size:28px;color:var(--z);transition:transform .12s var(--ease)}
+.notas button:active{transform:scale(.94)}
+.notas button[aria-pressed=true]{background:var(--z);color:#fff;box-shadow:none}
+.notas-x{display:flex;justify-content:space-between;font-size:13px;color:var(--ink-2);margin-top:8px}
+/* quem foi com você */
+.people{display:flex;flex-wrap:wrap;gap:8px}
+.chip-p{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 12px 0 5px;border-radius:999px;background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--line-2);font-size:15px;font-weight:550}
+.chip-p small{font-size:10px;font-weight:700;color:var(--accent);background:var(--accent-tint);border-radius:5px;padding:1px 4px}
+.chip-p[aria-pressed=true]{background:var(--ink);color:#fff;box-shadow:none}
+.chip-p.add{padding:0 14px 0 10px;color:var(--ink-2)}.chip-p.add svg{width:18px;height:18px}
+.pp{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#fff;font-style:normal;font-family:'EB Garamond',Georgia,serif;font-size:16px}
+.pp.lia{box-shadow:0 0 0 2px var(--surface),0 0 0 3.5px var(--accent)}
+.padd{margin-top:10px}.padd[hidden]{display:none}
+#psug{display:grid;gap:2px;margin-top:6px}
+.sug{display:flex;align-items:center;gap:10px;padding:8px 6px;border-radius:10px;text-align:left;font-size:15px}
+.sug:active{background:var(--track)}
+.sug small{display:block;font-size:12.5px;color:var(--ink-2)}
+/* cadastro: uma pergunta por tela */
+#onb{position:fixed;inset:0;z-index:2500;background:var(--ground);overflow-y:auto}
+.onb-screen{min-height:100%;max-width:520px;margin:0 auto;display:flex;flex-direction:column;padding:calc(10px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom))}
+.onb-back{display:block;width:44px;height:44px;margin:0 0 12px -12px}
+.onb-screen h1{font-family:'EB Garamond',Georgia,serif;font-weight:500;font-size:32px;line-height:1.1;text-wrap:balance}
+.onb-sub{color:var(--ink-2);margin-top:6px;font-size:16px}
+.onb-body{display:grid;gap:4px;margin-top:22px}
+.onb-in{width:100%;border:0;border-bottom:1.5px solid var(--line-2);background:none;padding:12px 0;font:inherit;font-size:18px;color:var(--ink);outline:0;border-radius:0}
+.onb-in:focus{border-bottom-color:var(--accent)}
+.onb-in::placeholder{color:var(--ink-2);opacity:.7}
+.onb-pw,.onb-user{display:flex;align-items:center;gap:4px;border-bottom:1.5px solid var(--line-2)}
+.onb-pw:focus-within,.onb-user:focus-within{border-bottom-color:var(--accent)}
+.onb-pw .onb-in,.onb-user .onb-in{border:0}
+.onb-user>span{font-size:18px;color:var(--ink-2)}
+.onb-ok{color:var(--win);opacity:0;transition:opacity .15s var(--ease)}.onb-ok.on{opacity:1}
+.onb-hint{font-size:14px;color:var(--ink-2);margin-top:10px}.onb-hint.bad{color:var(--heart)}
+.onb-rules{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:4px;font-size:14px;color:var(--ink-2)}
+.onb-rules li{display:flex;align-items:center;gap:6px}.onb-rules svg{width:16px;height:16px;opacity:.35}
+.onb-rules li.ok{color:var(--win)}.onb-rules li.ok svg{opacity:1}
+.onb-err{color:var(--heart);font-size:15px;margin-top:16px}
+.onb-foot{margin-top:auto;padding-top:28px;display:grid;gap:6px}
+.onb-cta:disabled{background:var(--line-2);color:#fff;opacity:1}
+.onb-legal{font-size:13px;color:var(--ink-2);text-align:center;margin:4px 0 0}.onb-legal a{color:var(--accent)}
+.onb-forgot{justify-self:start;padding:0;margin-top:10px;min-height:36px}
+.onb-welcome{text-align:center;justify-content:center}
+.onb-welcome .onb-foot{margin-top:40px}
+.onb-hero{min-height:160px;display:grid;place-items:center;margin-bottom:12px}
+.onb-sig{font-family:Caveat,cursive;font-weight:600;font-size:96px;color:var(--accent);transform:rotate(-4deg)}
+.onb-num{font-family:'EB Garamond',Georgia,serif;font-weight:500;font-size:72px;color:var(--win)}
+.onb-dots{display:flex;justify-content:center;gap:8px;margin-top:28px}
+.onb-dots button{width:8px;height:8px;border-radius:50%;background:var(--line-2);padding:0}
+.onb-dots button[aria-current=true]{background:var(--accent);width:22px;border-radius:4px}
+.spin{width:20px;height:20px;border-radius:50%;border:2.5px solid #fff6;border-top-color:#fff;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.avatar[hidden]{display:none}
+.avatar{flex:none;width:36px;height:36px;margin-left:10px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-family:'EB Garamond',Georgia,serif;font-size:19px}
+#install{position:fixed;z-index:1500;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top));max-width:536px;margin:0 auto;display:flex;align-items:center;gap:10px;padding:10px 6px 10px 16px;background:var(--surface);border-radius:16px;box-shadow:0 10px 30px -8px #1d1a1766;animation:rise .35s var(--ease)}
+/* abertura: a assinatura se escreve e dissolve no ranking (~1,3s, 1x por dia) */
+#splash{position:fixed;inset:0;z-index:3000;display:grid;place-items:center;background:var(--ground);cursor:pointer}
+#splash .w{display:flex;align-items:flex-end;gap:4px;transform:rotate(-4deg)}
+#splash .sig{font-family:Caveat,cursive;font-weight:600;font-size:108px;line-height:1;color:var(--accent);clip-path:inset(-10% 100% -10% 0)}
+#splash.go .sig{animation:sig-write .72s var(--ease-in-out) .08s forwards}
+#splash.go{animation:splash-out .32s var(--ease) 1s forwards}
+#splash.skip{animation:splash-skip .16s var(--ease) forwards}   /* nome próprio: reusar splash-out herdaria o tempo já decorrido */
+@keyframes sig-write{to{clip-path:inset(-10% 0 -10% 0)}}
+@keyframes splash-out{to{opacity:0;visibility:hidden}}
+@keyframes splash-skip{to{opacity:0;visibility:hidden}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}
+  #splash .sig{clip-path:none}}   /* sem movimento: aparece pronta e o JS some com ela */
+</style>
+</head>
+<body>
+<div id="splash" aria-hidden="true" hidden><div class="w"><span class="sig">Lia</span></div></div>
+<script>
+// abertura só na primeira vez do dia; roda antes do app para não piscar a tela
+(() => {
+  const el = document.getElementById('splash'), today = new Date().toDateString();
+  let seen = null; try { seen = localStorage.getItem('lia:splash'); localStorage.setItem('lia:splash', today); } catch {}
+  if (seen === today) return el.remove();
+  el.hidden = false;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const done = () => el.remove();
+  const go = () => {
+    el.classList.add('go');
+    el.addEventListener('animationend', e => { if (e.target === el) done(); });
+    setTimeout(done, reduce ? 700 : 1800);   // garantia: some mesmo se a animação não rodar
+  };
+  // espera a fonte da assinatura (no máximo 400ms) para não escrever com a letra errada
+  Promise.race([document.fonts.load('600 108px Caveat'), new Promise(r => setTimeout(r, 400))]).then(go, go);
+  el.addEventListener('click', () => el.classList.add('skip'), { once: true });
+})();
+</script>
+<header class="top">
+  <div class="wrap brand"><h1>Lia</h1><span id="count"></span><button id="me" class="avatar" hidden aria-label="Sua conta"></button></div>
+  <div class="wrap" id="seg"></div>
+</header>
+<main id="view"></main>
+<nav aria-label="Principal"><div class="wrap">
+  <div class="dest">
+    <!-- ícones em traço de caneta (estilo A): linhas levemente tortas, como desenhadas à mão -->
+    <button data-tab="tabela"><svg class="i hand" viewBox="0 0 24 24"><path d="M3.2 20.3c5.8-.2 11.8.1 17.6-.1"/><path d="M9.1 20.1c-.1-3.9.1-7.6 0-11.2 2-.1 3.9.1 5.9 0 .1 3.7-.1 7.4.1 11.1"/><path d="M3.4 20.2c-.1-2.1.1-4 0-5.9 1.9 0 3.8.1 5.6 0"/><path d="M15 12.4c1.9.1 3.8-.1 5.7 0 .1 2.6-.1 5.2.1 7.8"/><path d="M11.3 6.2l1-1.6v2.9"/></svg>Ranking</button>
+    <button data-tab="quero"><svg class="i hand" viewBox="0 0 24 24"><path d="M6.6 3.3c3.7.1 7.2-.1 10.8.1.1 5.9-.1 11.8.1 17.6-1.8-1.3-3.7-2.6-5.4-3.9-1.9 1.3-3.7 2.6-5.6 3.9.1-5.9-.1-11.8.1-17.7z"/><path d="M13.9 3.4c.1 1.6-.1 3.1.1 4.6 1.1-.7 2.3-1.4 3.4-2.1"/></svg>Quero ir</button>
+    <button data-tab="mapa"><svg class="i hand" viewBox="0 0 24 24"><path d="M3.1 6.4c2-.8 4-1.5 6-2.2 2 .7 4 1.5 6 2.1 2-.6 4-1.4 5.9-2.1.1 4.6-.1 9.3.1 13.9-2 .8-4 1.5-6 2.2-2-.8-4-1.5-6-2.2-2 .8-4 1.6-6 2.3-.1-4.7.1-9.4 0-14z"/><path d="M9.1 4.3c-.1 4.6.1 9.3 0 13.9M15.1 6.3c-.1 4.6.1 9.2 0 13.8"/></svg>Mapa</button>
+    <button data-tab="atividade"><svg class="i hand" viewBox="0 0 24 24"><path d="M6.2 3.2c4.3.1 8.6-.1 12.8.1.1 5.9-.1 11.8.1 17.6-4.3-.1-8.6.1-12.9-.1-.1-5.8.1-11.7 0-17.6z"/><path d="M4.2 7h3.6M4.2 12h3.6M4.2 17h3.6"/><path d="M10.6 8.1c1.9 0 3.9.1 5.8 0M10.6 11.6c1.4.1 2.9-.1 4.3 0"/></svg>Diário</button>
+  </div>
+  <button class="plus" data-tab="buscar"><svg class="i hand" viewBox="0 0 24 24"><path d="M15.6 4.1l4.3 4.2c-3.9 3.9-7.8 7.8-11.6 11.7l-5.2 1 .9-5.3c3.9-3.8 7.7-7.7 11.6-11.6z"/><path d="M13.4 6.3l4.3 4.3"/></svg><span class="sr">Ranquear um lugar</span></button>
+</div></nav>
+<dialog id="dlg"></dialog>
+<dialog id="viewer" aria-label="Foto"></dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
+<script type="module">
+import { startSession, current, done, answer, undo, finalValue, scores, community, migrateV1 } from './ranking.mjs';
+import { parseHours, hoursStatus, hoursWeek } from './hours.mjs';
+import { googleOn, googlePlace, googlePhoto, priceText } from './google.mjs';
+import { configured, currentUser, myProfile, signOut, onPasswordRecovery, searchProfiles, uploadPhoto, photoUrls, deletePhotos, errorText, sendReport, loadUserData, saveUserData, deleteAccount, friendView, friendsFeed, friendsAt, setPrivacy, follow, unfollow, acceptFollow, removeFollower, myFollows, sendMentions, myMentions, markMentionsSeen, savePushSub, deletePushSub } from './conta.mjs';
+import { mergeData } from './sync.mjs';
+import { startOnboarding } from './onboarding.mjs';
+
+const CATS = { RES: 'Restaurantes', CAF: 'Cafés e padarias', BAR: 'Bares' };
+// --- estado (localStorage) ---
+const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+// Sincronização: o celular guarda tudo e manda para a conta (user_data) logo depois de cada mudança.
+// syncMeta: de quem são os dados deste aparelho, quando foi a última sincronização e se há mudança ainda não enviada.
+let syncMeta = load('lia:sync', { userId: null, syncedAt: null, dirty: true });
+let syncUser = null, syncState = 'idle', pushTimer = 0;   // syncState: idle | saving | ok | offline
+const saveMeta = () => save('lia:sync', syncMeta);
+const freshDb = () => ({ v: 2, ranked: [], want: [], custom: [], people: [], favs: [], lists: [], plans: [] });
+function fixDb(d) {
+  d ||= freshDb();
+  if (!d.v) { d.ranked = migrateV1(d.ranked || []); d.v = 2; }   // v2: notas de 1 a 10 (antes: faixas gostei/ok/não gostei)
+  d.ranked ||= []; d.want ||= []; d.custom ||= [];
+  d.people ||= [];   // {id, name, userId?, username?, used}
+  d.favs ||= [];     // até 4 lugares favoritos (ids), mostrados no perfil
+  d.lists ||= [];    // {id, name, items: [ids], created}
+  d.plans ||= [];    // idas marcadas no Quero ir: {id, placeId, date, with: [], note, created}
+  return d;
+}
+let db = fixDb(load('pinhao:v1', null));   // ranked: {id,name,cat,cuisine,bairro,lat,lon,value,loved,visits:[...],date}
+function persist() {
+  save('pinhao:v1', db);
+  syncMeta.dirty = true; saveMeta();
+  if (syncUser) { clearTimeout(pushTimer); pushTimer = setTimeout(pushData, 1500); }   // junta várias mudanças seguidas num envio só
+}
+save('pinhao:v1', db);
+// lugares vêm de places.json (cópia do OpenStreetMap publicada junto com o app; o service worker guarda para uso offline)
+let places = null;
+try { localStorage.removeItem('pinhao:places'); localStorage.removeItem('pinhao:places2'); } catch {}   // caches antigos, de quando o app baixava do Overpass
+let social = { followers: [], following: [], requests: [] }, mentions = [], feed = null, diaryMode = 'me';   // amigos
+let rankQueue = [];   // começo guiado: lugares marcados que ainda faltam ranquear
+let tab = 'tabela', cat = 'RES', query = '', loadError = '', justRanked = null;
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const norm = s => s.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
+// topo de "ok" é exatamente 6.7 e de "não gostei" 3.4, por isso o >
+const zone = n => n >= 7 ? 'win' : n >= 4 ? 'mid' : 'low';
+const rankedIn = c => db.ranked.filter(r => r.cat === c).sort((a, b) => b.value - a.value);
+const allScores = () => Object.assign({}, ...Object.keys(CATS).map(c => scores(rankedIn(c))));
+const PT = { japanese: 'japonesa', sushi: 'sushi', pizza: 'pizza', burger: 'hambúrguer', italian: 'italiana', brazilian: 'brasileira', regional: 'regional',
+  steak_house: 'churrascaria', barbecue: 'churrasco', chinese: 'chinesa', arab: 'árabe', lebanese: 'libanesa', mexican: 'mexicana', coffee_shop: 'café',
+  sandwich: 'sanduíche', chicken: 'frango', ice_cream: 'sorvete', vegetarian: 'vegetariana', vegan: 'vegana', seafood: 'frutos do mar', french: 'francesa',
+  portuguese: 'portuguesa', german: 'alemã', polish: 'polonesa', ukrainian: 'ucraniana', thai: 'tailandesa', indian: 'indiana', korean: 'coreana',
+  peruvian: 'peruana', bakery: 'padaria', cake: 'doces', dessert: 'sobremesas', fish: 'peixe', international: 'internacional', buffet: 'bufê', crepe: 'crepe',
+  pastel: 'pastel', acai: 'açaí', breakfast: 'café da manhã', juice: 'sucos', beer: 'cerveja', kebab: 'kebab', tapas: 'tapas', hot_dog: 'cachorro-quente' };
+const cuisines = c => (c || '').split(';').map(x => x.trim()).filter(Boolean).map(x => PT[x] || x.replace(/_/g, ' '));
+const fmtScore = n => Number.isInteger(n) ? String(n) : n.toFixed(1).replace('.', ',');   // nota sua é inteira; a da comunidade tem decimal
+const meta = p => esc([cuisines(p.cuisine).join(', '), p.bairro].filter(Boolean).join(' · ') || CATS[p.cat]);
+const allPlaces = () => [...(places || []), ...db.custom];
+// entradas antigas (antes do diário) tinham só date/note
+const visits = r => r.visits || [{ date: r.date, note: r.note || '' }];
+const fmtDay = d => new Date(d).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
+const byId = id => allPlaces().find(p => p.id === id) || db.ranked.find(r => r.id === id);
+
+const ICON = { tag: '<path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1 1 0 0 1 0 1.4l-7.2 7.2a1 1 0 0 1-1.4 0z"/><circle cx="8" cy="8" r="1.4"/>', check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>', bookmark: '<path d="M6 4h12v17l-6-4-6 4z"/>',
+  undo: '<path d="M9 5L4 10l5 5M4 10h10a5 5 0 0 1 0 10h-3"/>',
+  locate: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/>',
+  fit: '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>',
+  route: '<circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h7a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h7"/>', plus: '<path d="M12 5v14M5 12h14"/>',
+  phone: '<path d="M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 5a2 2 0 0 1 2-2z"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+  share: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/>',
+  pin: '<path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  back: '<path d="M15 5l-7 7 7 7"/>',
+  cal: '<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+  chat: '<path d="M4 20l1.4-4A8 8 0 1 1 9 19.4z"/><path d="M9 10.5c.4 1.6 1.9 3.1 3.5 3.5l1.2-1 1.8.8v1.4"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
+  heart: '<path d="M12 20s-7.5-4.6-9.2-9.3A4.7 4.7 0 0 1 12 7.2a4.7 4.7 0 0 1 9.2 3.5C19.5 15.4 12 20 12 20z"/>' };
+const icon = (n, fill) => `<svg class="i${fill ? ' fill' : ''}" viewBox="0 0 24 24" aria-hidden="true">${ICON[n]}</svg>`;
+
+
+async function fetchPlaces() {
+  try {
+    const r = await fetch('places.json');
+    if (!r.ok) throw new Error(r.status);
+    places = await r.json(); loadError = '';
+    setTimeout(checkPlans, 1800);   // depois da abertura
+  } catch (err) { loadError = String(err); }
+  render();
+}
+
+// --- telas ---
+const posBadge = (i, z) => `<span class="pos cond z-${z}">${i}</span>`;
+const pts = (n, cls = '') => `<span class="pts cond z-${zone(n)} ${cls}">${fmtScore(n)}</span>`;
+// notas das visitas em ordem de data (só as que têm nota; as antigas, de antes deste recurso, não têm)
+const notedVisits = r => visits(r).filter(v => v.nota != null).sort((a, b) => a.date - b.date);
+function trend(r) {   // compara a última nota com a primeira; nada se ficou igual ou se só há uma
+  const n = notedVisits(r); if (n.length < 2) return null;
+  const from = n[0].nota, to = n.at(-1).nota;
+  return from === to ? null : { from, to, up: to > from };
+}
+const loveMark = p => db.ranked.find(r => r.id === p.id)?.loved ? `<svg class="i fill love" viewBox="0 0 24 24" aria-label="Amei">${ICON.heart}</svg>` : '';
+const rowBody = (p, sub) => `<span class="t"><b>${esc(p.name)}${loveMark(p)}</b><small>${sub ?? meta(p)}</small></span>`;
+
+function results() {
+  if (!places) return loadError
+    ? `<div class="msg">Não deu para baixar os lugares de Curitiba. Confira a internet e tente de novo.<br><button class="btn secondary" data-act="retry">Tentar de novo</button></div>`
+    : `<div class="msg">Baixando os lugares de Curitiba…</div>`;
+  const q = norm(query.trim());
+  if (q.length < 2) {
+    const top = (key, n) => { const c = {}; for (const p of places) for (const v of key(p)) c[v] = (c[v] || 0) + 1; return Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, n).map(e => e[0]); };
+    const chips = xs => `<div class="chips">${xs.map(x => `<button class="chip" data-q="${esc(x)}">${esc(x)}</button>`).join('')}</div>`;
+    if (browse) {
+      const base = places.filter(p => p.cat === cat && p.lat), list = filterNear(base, browse === 'open').slice(0, 40);
+      return `<div class="chips filt" style="margin-top:12px"><button class="chip" data-browse="open" aria-pressed="${browse === 'open'}">Abertos agora</button><button class="chip" data-browse="near" aria-pressed="${browse === 'near'}">Perto de mim</button><button class="chip" data-browse="off">Limpar</button></div>
+        ${list.length ? `<ol class="table" style="margin-top:6px">${list.map(p => `<li class="row"><button class="row-main" data-pick="${p.id}">${rowBody(p, placeSub(p))}</button></li>`).join('')}</ol>` : '<p class="msg">Nada por aqui.</p>'}`;
+    }
+    return `<h2 class="group">Explorar</h2><div class="chips"><button class="chip" data-browse="open">Abertos agora</button><button class="chip" data-browse="near">Perto de mim</button></div>
+      <h2 class="group">Culinárias</h2>${chips(top(p => cuisines(p.cuisine).slice(0, 1), 12))}
+      <h2 class="group">Bairros</h2>${chips(top(p => p.bairro ? [p.bairro] : [], 10))}`;
+  }
+  const sc = allScores();
+  const hit = allPlaces().filter(p => norm(`${p.name} ${p.cuisine} ${cuisines(p.cuisine).join(' ')} ${p.bairro}`).includes(q))
+    .sort((a, b) => norm(b.name).startsWith(q) - norm(a.name).startsWith(q)).slice(0, 50);
+  if (!hit.length) return `<div class="msg">Nenhum lugar com “${esc(query.trim())}”.<br><button class="btn secondary" data-act="add">${icon('plus')}Adicionar esse lugar</button></div>`;
+  return `<ol class="table" style="margin-top:14px">${hit.map(p => `<li class="row">
+    <button class="row-main" data-pick="${p.id}">${rowBody(p)}</button>
+    ${sc[p.id] != null ? pts(sc[p.id]) : `<button class="iconbtn" data-want="${p.id}" aria-pressed="${db.want.includes(p.id)}" aria-label="Quero ir: ${esc(p.name)}">${icon('bookmark', db.want.includes(p.id))}</button>`}</li>`).join('')}</ol>`;
+}
+
+// calendário do mês no Diário: dias com visita ficam marcados com a cor da melhor nota do dia
+let calMonth = null, calDay = null;
+function calendarHTML(items, sc) {
+  const now = new Date(), m = calMonth || new Date(now.getFullYear(), now.getMonth(), 1);
+  const byDay = {};
+  for (const r of items) { const k = dayValue(r.date), n = r.visit.nota ?? sc[r.id]; (byDay[k] ||= { count: 0, best: 0 }); byDay[k].count++; byDay[k].best = Math.max(byDay[k].best, n || 0); }
+  const first = new Date(m.getFullYear(), m.getMonth(), 1), days = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
+  const today = dayValue(now), cells = [];
+  for (let i = 0; i < first.getDay(); i++) cells.push('<span></span>');
+  for (let d = 1; d <= days; d++) {
+    const k = dayValue(new Date(m.getFullYear(), m.getMonth(), d)), info = byDay[k];
+    const cls = [k === today ? 'today' : '', k === calDay ? 'sel' : '', !info && db.plans.some(pl => dayValue(pl.date) === k) ? 'planned' : ''].join(' ');
+    cells.push(info ? `<button class="cd has z-${zone(info.best)} ${cls}" data-calday="${k}" aria-label="${d}: ${info.count} visita${info.count > 1 ? 's' : ''}">${d}${info.count > 1 ? `<small>${info.count}</small>` : ''}</button>` : `<span class="cd ${cls}">${d}</span>`);
+  }
+  const title = m.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  const atNow = m.getFullYear() === now.getFullYear() && m.getMonth() === now.getMonth();
+  return `<div class="cal"><div class="calh"><button class="iconbtn" data-calnav="-1" aria-label="Mês anterior">${icon('back')}</button><b>${title[0].toUpperCase() + title.slice(1)}</b>
+    <button class="iconbtn" data-calnav="1" aria-label="Próximo mês" ${atNow ? 'disabled' : ''} style="transform:scaleX(-1)">${icon('back')}</button></div>
+    <div class="calw">${['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map(w => `<span>${w}</span>`).join('')}</div><div class="calg">${cells.join('')}</div></div>`;
+}
+
+// Quero ir: com texto na busca, mostra lugares para salvar; sem texto, a sua lista (idas marcadas primeiro)
+let queroQuery = '';
+function queroList() {
+  const q = norm(queroQuery.trim());
+  if (places && q.length >= 2) {
+    const hit = allPlaces().filter(p => p.cat === cat && norm(`${p.name} ${p.cuisine} ${cuisines(p.cuisine).join(' ')} ${p.bairro}`).includes(q))
+      .sort((a, b) => norm(b.name).startsWith(q) - norm(a.name).startsWith(q)).slice(0, 40);
+    return hit.length ? `<ol class="table" style="margin-top:6px">${hit.map(p => `<li class="row"><button class="row-main" data-open="${p.id}">${rowBody(p)}</button>
+      <button class="iconbtn" data-want="${p.id}" aria-pressed="${db.want.includes(p.id)}" aria-label="Quero ir: ${esc(p.name)}">${icon('bookmark', db.want.includes(p.id))}</button></li>`).join('')}</ol>`
+      : `<p class="msg">Nenhum lugar com “${esc(queroQuery.trim())}”.</p>`;
+  }
+    const want = allPlaces().filter(p => db.want.includes(p.id) && p.cat === cat);
+    if (!want.length) return `<div class="wrap empty" style="padding-top:8px"><h2>Nenhum lugar salvo em ${CATS[cat].toLowerCase()}</h2>
+      <p>Busque acima, ou toque em "Quero ir" na busca e no mapa, para guardar aqui e não esquecer.</p></div>`;
+    const list = filterNear(want, queroOpen), planOf = p => planFor(p.id);
+    const sorted = [...list.filter(planOf).sort((a, b) => planOf(a).date - planOf(b).date), ...list.filter(p => !planOf(p))];
+    return `<div class="chips filt"><button class="chip" data-qf="open" aria-pressed="${queroOpen}">Aberto agora</button><button class="chip" data-qf="near" aria-pressed="${!!nearOn}">Perto de mim</button></div>
+      ${sorted.length ? `<div class="wrap" style="padding:6px 0 0"><ol class="table">${sorted.map(p => { const pl = planOf(p);
+        return `<li class="row"><button class="row-main" data-open="${p.id}">${rowBody(p, pl ? `<span class="plan-when">${esc(planText(pl))}</span>` : placeSub(p))}</button>
+        <button class="iconbtn${pl ? ' on' : ''}" data-plan="${p.id}" aria-label="${pl ? 'Editar ida marcada' : 'Marcar ida'}">${icon('cal')}</button><button class="pill" data-rank="${p.id}">Já fui</button></li>`; }).join('')}</ol></div>`
+        : `<p class="msg">Nenhum lugar salvo aberto agora.</p>`}`;
+}
+
+const views = {
+  tabela() {
+    const mine = rankedIn(cat), sc = scores(mine);
+    if (!mine.length) return `<div class="wrap empty"><ol class="ghost">${[1, 2, 3].map(i => `<li><span class="pos cond">${i}</span>${['Seu lugar favorito', 'O segundo melhor', 'E assim por diante'][i - 1]}</li>`).join('')}</ol>
+      <h2>Seu ranking de ${CATS[cat].toLowerCase()} começa aqui</h2>
+      <p>Escolha um lugar onde você já foi, diga como foi e compare com os outros. A nota sai sozinha.</p>
+      <button class="btn primary" data-a="quick">${icon('plus')}Marcar lugares onde já fui</button></div>`;
+    let prev;
+    const rows = mine.map((r, i) => {
+      const z = zone(sc[r.id]), line = prev && prev !== z ? '<li class="zline" role="presentation"></li>' : ''; prev = z;
+      return `${line}<li><button class="row${r.id === justRanked ? ' new' : ''}" data-open="${r.id}">${posBadge(i + 1, z)}${rowBody(r)}${pts(sc[r.id])}</button></li>`;
+    }).join('');
+    return `<div class="wrap" style="padding:0"><div class="thead cond"><span>POS</span><span>LUGAR</span><span>NOTA</span></div><ol class="table">${rows}</ol>
+      <p class="legend"><span><i class="z-win"></i>7 a 10</span><span><i class="z-mid"></i>4 a 6</span><span><i class="z-low"></i>1 a 3</span></p></div>`;
+  },
+  quero() {
+    return `<div class="band"><div class="wrap"><label class="field">${icon('search')}<input id="qq" type="search" enterkeyhint="search" autocomplete="off" placeholder="Buscar lugar para salvar" aria-label="Buscar lugar para salvar" value="${esc(queroQuery)}"></label></div></div>
+      <div id="qres">${queroList()}</div>`;
+  },
+  buscar() {
+    return `<div class="band"><div class="wrap"><label class="field">${icon('search')}<input id="q" type="search" enterkeyhint="search" autocomplete="off" placeholder="Nome, culinária ou bairro" aria-label="Buscar lugar" value="${esc(query)}"></label></div></div>
+      <div class="wrap" style="padding:0" id="results">${results()}</div>`;
+  },
+  mapa() { return `<div id="map"></div><p class="maphint">Aproxime para ver todos os lugares</p><div id="mapcard" hidden></div>
+    <div class="mapbtns"><button data-m="me" aria-label="Minha localização">${icon('locate')}</button><button data-m="fit" aria-label="Ver meus lugares">${icon('fit')}</button></div>`; },
+  atividade() {
+    const seg = syncUser ? `<div class="wrap" style="padding-bottom:0"><div class="seg">${[['me', 'Você'], ['friends', 'Amigos']].map(([k, t]) => `<button data-dmode="${k}" aria-pressed="${diaryMode === k}">${t}</button>`).join('')}</div></div>` : '';
+    if (syncUser && diaryMode === 'friends') return seg + friendsDiary();
+    return seg + views.myDiary();
+  },
+  myDiary() {
+    const sc = allScores(), items = db.ranked.flatMap(r => visits(r).map(v => ({ ...r, date: v.date, visit: v }))).sort((a, b) => b.date - a.date);
+    const upcoming = db.plans.filter(pl => pl.date > Date.now() - 6 * 36e5).sort((a, b) => a.date - b.date);
+    if (!items.length && !upcoming.length) return `<div class="wrap empty"><h2>Nada por aqui ainda</h2><p>Cada lugar que você ranquear aparece nesta lista, do mais recente ao mais antigo.</p>
+      <button class="btn primary" data-tab="buscar">${icon('plus')}Ranquear um lugar</button></div>`;
+    const day = d => { const diff = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(d).setHours(0, 0, 0, 0)) / 864e5);
+      return diff === 0 ? 'Hoje' : diff === 1 ? 'Ontem' : new Date(d).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' }); };
+    const shown = calDay ? items.filter(r => dayValue(r.date) === calDay) : items;
+    let last, out = (upcoming.length ? `<h2 class="group">Próximas</h2><ol class="table">${upcoming.map(pl => { const p = byId(pl.placeId); return p ? `<li><button class="row" data-plan="${p.id}">${rowBody(p, `<span class="plan-when">${esc(planText(pl))}</span>`)}${icon('cal')}</button></li>` : ''; }).join('')}</ol>` : '')
+      + calendarHTML(items, sc) + (calDay ? `<p class="calsel">${new Date(calDay + 'T12:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })} · <button class="link" data-calclear>Ver todas as visitas</button></p>` : '');
+    for (const r of shown) {
+      const d = day(r.date);
+      if (d !== last) { out += `${last ? '</ol>' : ''}<h2 class="group">${d}</h2><ol class="table">`; last = d; }
+      const sub = [r.visit.revisit ? 'Voltei' : 'Primeira visita', esc(withText(r.visit.with)), (r.visit.tags || []).join(', '), r.visit.note && `“${esc(r.visit.note)}”`].filter(Boolean).join(' · ');
+      out += `<li><button class="row" data-open="${r.id}">${rowBody(r, sub)}${r.visit.photos?.length ? `<img class="rthumb" data-path="${esc(r.visit.photos[0])}" alt="">` : ''}${pts(r.visit.nota ?? sc[r.id])}</button></li>`;
+    }
+    return `<div class="wrap" style="padding:0 0 28px">${out}</ol></div>`;
+  },
+};
+
+let map, mapState = null, mapSel = null, me = null;
+function friendsDiary() {
+  if (feed === null) { friendsFeed().then(f => { feed = f; if (tab === 'atividade') render(); }).catch(() => { feed = []; }); return '<div class="loading"><span class="spin" aria-label="Carregando"></span></div>'; }
+  const unseen = mentions.some(m => !m.seen);
+  if (unseen) { markMentionsSeen().catch(() => {}); setTimeout(() => { mentions.forEach(m => m.seen = true); document.querySelector('nav [data-tab="atividade"]')?.classList.remove('dot'); }, 0); }
+  const mm = mentions.slice(0, 5).map(m => { const mine = db.ranked.some(r => r.id === m.place_id);
+    return `<li><button class="row" data-mention="${esc(m.place_id)}">${uAvatar({ ...(m.who || {}), id: m.author })}<span class="t"><b>${esc(m.who?.first_name || 'Alguém')} marcou você</b><small>${esc(m.place_name)} · ${fmtDay(m.visit_date)}${mine ? '' : ' · toque para dar a sua nota'}</small></span>${m.seen ? '' : '<i class="newdot"></i>'}</button></li>`; }).join('');
+  const day = d => new Date(d).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
+  const items = feed.map(f => `<li><div class="fitem"><button class="fwho" data-friend="${f.user_id}" aria-label="Ver perfil de ${esc(f.first_name || f.username)}">${uAvatar({ ...f, id: f.user_id })}</button>
+    <button class="row" data-fplace="${esc(f.place.id)}" data-fdata="${esc(JSON.stringify(f.place))}"><span class="t"><b>${esc(f.first_name || '@' + f.username)} · ${esc(f.place.name)}</b><small>${[day(f.date), f.note && `“${esc(f.note)}”`].filter(Boolean).join(' · ')}</small></span>${f.photos?.length ? `<img class="rthumb" data-path="${esc(f.photos[0])}" alt="">` : ''}${f.nota != null ? pts(f.nota) : ''}</button></div></li>`).join('');
+  if (!mm && !items) return `<div class="wrap empty"><h2>Siga seus amigos</h2><p>Quando alguém que você segue ranquear um lugar, aparece aqui.</p><button class="btn primary" data-a2="findfriends">${icon('search')}Encontrar amigos</button></div>`;
+  return `<div class="wrap" style="padding:0 0 28px">${mm ? `<h2 class="group">Marcações</h2><ol class="table">${mm}</ol>` : ''}${items ? `<h2 class="group">Seus amigos</h2><ol class="table">${items}</ol>` : `<p class="sub" style="padding:16px">Seus amigos ainda não ranquearam nada.</p>`}</div>`;
+}
+
+function render() {
+  document.querySelectorAll('nav button').forEach(b => b.dataset.tab === tab ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'));
+  $('#seg').innerHTML = ['tabela', 'quero', 'mapa'].includes(tab) ? `<div class="seg">${Object.entries(CATS).map(([k, v]) =>
+    `<button data-cat="${k}" aria-pressed="${k === cat}">${v}</button>`).join('')}</div>` : '';
+  $('#count').textContent = db.ranked.length ? `${db.ranked.length} ${db.ranked.length === 1 ? 'lugar' : 'lugares'}` : 'Curitiba';
+  const view = $('#view');
+  view.className = 'v-' + tab; view.innerHTML = views[tab](); view.scrollTop = 0;
+  hydratePhotos(view);
+  if (tab === 'mapa') drawMap();
+  justRanked = null;
+}
+
+const CENTER = [-49.2733, -25.4284];   // MapLibre usa [lon, lat]
+function drawMap() {
+  map?.remove();
+  // mapa vetorial (MapLibre) com o estilo aberto do OpenFreeMap: nítido em qualquer zoom, sem chave
+  map = new maplibregl.Map({ container: 'map', style: 'https://tiles.openfreemap.org/styles/bright', center: mapState?.c ?? CENTER, zoom: mapState?.z ?? 14,
+    attributionControl: false, dragRotate: false, pitchWithRotate: false });
+  map.touchZoomRotate.disableRotation();
+  map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
+  if (matchMedia('(pointer:fine)').matches) map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+  const mine = rankedIn(cat), sc = scores(mine), taken = new Set([...mine.map(r => r.id), ...db.want]);
+  const want = allPlaces().filter(p => db.want.includes(p.id) && p.cat === cat && p.lat);
+  const card = $('#mapcard'), hint = $('.maphint');
+  const el = html => { const d = document.createElement('div'); d.innerHTML = html; return d.firstChild; };
+  let ring, meMarker;
+
+  // cartão do lugar: não cobre o mapa nem tira você de onde estava
+  const hide = () => { card.hidden = true; ring?.remove(); mapSel = null; };
+  const show = p => {
+    card.style.animation = !card.hidden && mapSel === p.id ? 'none' : '';   // atualizar o mesmo lugar não repete a entrada
+    mapSel = p.id; ring?.remove();
+    ring = new maplibregl.Marker({ element: el('<span class="ring"></span>') }).setLngLat([p.lon, p.lat]).addTo(map);
+    card.hidden = false;
+    card.innerHTML = `<div class="ph"><button class="open-sheet" data-a="open" aria-label="Abrir ficha de ${esc(p.name)}">${placeHead(p)}</button>
+      <button class="iconbtn" data-a="share" aria-label="Compartilhar">${icon('share')}</button><button class="iconbtn" data-m="close" aria-label="Fechar">${icon('x')}</button></div><div class="mg" data-id="${esc(p.id)}">${googleOn() ? '<span class="skel sq"></span><div><span class="skel"></span><span class="skel short"></span></div>' : ''}</div>${actionCells(p)}`;
+    mapGoogle(p);
+    card.onclick = e => {
+      if (e.target.closest('[data-m="close"]')) return hide();
+      const a = e.target.closest('[data-a]')?.dataset.a;
+      if (a) placeAction(a, p, a === 'want' ? render : () => show(p));   // só "Quero ir" muda os pinos do mapa
+    };
+    // traz o lugar para a parte livre da tela, acima do cartão
+    const pt = map.project([p.lon, p.lat]), h = map.getContainer().clientHeight;
+    if (pt.y > h - 290 || pt.y < 70 || pt.x < 30 || pt.x > map.getContainer().clientWidth - 30) map.easeTo({ center: [p.lon, p.lat], offset: [0, -110] });
+  };
+
+  // lugares ainda não ranqueados: pontos com o nome ao lado, como num mapa de celular
+  map.on('load', () => {
+    for (const l of map.getStyle().layers) if (l.id.startsWith('poi')) map.removeLayer(l.id);
+    const at = $('.maplibregl-ctrl-attrib'); at?.classList.remove('maplibregl-compact-show'); at?.removeAttribute('open');   // crédito recolhido no (i)
+    map.addSource('dots', { type: 'geojson', data: { type: 'FeatureCollection', features: (places || []).filter(p => p.cat === cat && p.lat && !taken.has(p.id))
+      .map(p => ({ type: 'Feature', properties: { id: p.id, name: p.name }, geometry: { type: 'Point', coordinates: [p.lon, p.lat] } })) } });
+    map.addLayer({ id: 'dots', type: 'circle', source: 'dots', minzoom: 12.5, paint: {
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 12.5, 2.5, 15, 5, 17, 7], 'circle-color': '#1d1a17', 'circle-stroke-color': '#fff',
+      'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 12.5, 1, 16, 2.5] } });
+    map.addLayer({ id: 'dot-names', type: 'symbol', source: 'dots', minzoom: 14.6, layout: { 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Regular'],
+      'text-size': 12.5, 'text-anchor': 'top', 'text-offset': [0, .7], 'text-max-width': 8 }, paint: { 'text-color': '#1d1a17', 'text-halo-color': '#fff', 'text-halo-width': 1.6 } });
+    const hit = e => map.queryRenderedFeatures([[e.point.x - 12, e.point.y - 12], [e.point.x + 12, e.point.y + 12]], { layers: ['dots', 'dot-names'] })[0];
+    map.on('click', e => { const f = hit(e); f ? show(byId(f.properties.id)) : hide(); });
+    map.on('mousemove', e => { map.getCanvas().style.cursor = hit(e) ? 'pointer' : ''; });
+  });
+  const sync = () => { hint.textContent = 'Aproxime para ver todos os lugares'; hint.hidden = map.getZoom() >= 12.5; };
+  map.on('zoomend', sync);
+
+  const pin = (p, html) => { const e = el(html); e.title = p.name; e.onclick = ev => { ev.stopPropagation(); show(p); }; new maplibregl.Marker({ element: e }).setLngLat([p.lon, p.lat]).addTo(map); };
+  want.forEach(p => pin(p, `<span class="pin want">${icon('bookmark', true)}</span>`));
+  [...mine].reverse().forEach(r => r.lat && pin(r, `<span class="pin cond z-${zone(sc[r.id])}">${mine.indexOf(r) + 1}</span>`));
+
+  const own = [...mine, ...want].filter(p => p.lat);
+  const fit = animate => { if (!own.length) return map.jumpTo({ center: CENTER, zoom: 14 });
+    map.fitBounds(own.reduce((b, p) => b.extend([p.lon, p.lat]), new maplibregl.LngLatBounds()), { padding: { top: 70, bottom: 130, left: 50, right: 50 }, maxZoom: 15, animate }); };
+  // volta para onde você estava: fechar uma ficha ou trocar de categoria não reinicia o mapa
+  if (!mapState) fit(false);
+  map.on('moveend', () => { mapState = { c: map.getCenter(), z: map.getZoom() }; });
+  const drawMe = () => { meMarker?.remove(); if (me) meMarker = new maplibregl.Marker({ element: el('<span class="me"></span>') }).setLngLat(me).addTo(map); };
+  $('.mapbtns').onclick = e => {
+    const m = e.target.closest('[data-m]')?.dataset.m;
+    if (m === 'fit') fit(true);
+    if (m === 'me') {
+      const fail = () => { hint.textContent = 'Não deu para pegar sua localização. Libere a permissão no navegador.'; hint.hidden = false; setTimeout(sync, 5000); };
+      navigator.geolocation ? navigator.geolocation.getCurrentPosition(pos => { me = [pos.coords.longitude, pos.coords.latitude]; drawMe(); map.flyTo({ center: me, zoom: 16 }); }, fail, { enableHighAccuracy: true, timeout: 10000 }) : fail();
+    }
+  };
+  drawMe(); sync();
+  const sel = mapSel && byId(mapSel);
+  if (sel?.lat && sel.cat === cat) show(sel); else mapSel = null;
+}
+
+// --- folhas ---
+const dlg = $('#dlg');
+function sheet(html, handler) {
+  dlg.innerHTML = `<div class="sheet"><button class="iconbtn x" data-close aria-label="Fechar">${icon('x')}</button>${html}</div>`;
+  if (!dlg.open) dlg.showModal();
+  dlg.scrollTop = 0;   // abrir outra coisa na mesma janela (ex.: um "Parecido") começa do topo
+  dlg.onclick = e => { if (e.target === dlg || e.target.closest('[data-close]')) return dlg.close(); handler(e); };
+  dlg.oninput = null; dlg.onchange = null;
+  hydratePhotos(dlg);
+}
+dlg.addEventListener('close', () => { rankQueue = []; render(); });
+const phead = p => `<div class="phead"><div><h2>${esc(p.name)}</h2><p class="sub">${meta(p)}</p></div></div>`;
+const full = p => ({ ...p, ...allPlaces().find(x => x.id === p.id) });   // entrada ranqueada + dados atuais do OSM
+
+// cabeçalho comum ao cartão e à ficha: nome, sua nota, culinária, status de horário
+function placeHead(p) {
+  const f = full(p), r = db.ranked.find(x => x.id === p.id), sc = r && scores(rankedIn(r.cat))[r.id];
+  const st = hoursStatus(parseHours(f.hours));
+  const tr = r && trend(r);
+  const bits = [r ? `${pts(sc)}<span>sua nota</span>${r.loved ? loveMark(p) : ''}${tr ? `<span class="trend ${tr.up ? 'up' : 'down'}">${tr.up ? '↑ subiu' : '↓ caiu'} de ${tr.from} para ${tr.to}</span>` : ''}` : '', esc(cuisines(f.cuisine).join(', ') || CATS[f.cat]), esc(f.bairro)].filter(Boolean);
+  return `<h2>${esc(f.name)}</h2><div class="pline">${bits.join('<span aria-hidden="true">·</span>')}</div>
+    ${st ? `<div class="pline"><span class="${st.open ? 'st-open' : 'st-closed'}">${st.text.split(' · ')[0]}</span>${st.text.includes(' · ') ? `<span>· ${st.text.split(' · ')[1]}</span>` : ''}</div>` : ''}`;
+}
+
+// três ações principais em células; ligar e site ficam nas linhas de informação da ficha
+function actionCells(p) {
+  const f = full(p), r = db.ranked.find(x => x.id === p.id), saved = db.want.includes(p.id);
+  const cell = (a, ic, label, extra = '') => `<button class="cell" data-a="${a}" ${extra}>${icon(ic, extra.includes('true'))}${label}</button>`;
+  return `<div class="cells">
+    <a class="cell primary" href="https://www.google.com/maps/dir/?api=1&destination=${f.lat},${f.lon}" target="_blank" rel="noopener">${icon('route')}Rota</a>
+    ${r ? cell('rank', 'plus', 'Voltei aqui') + cell('love', 'heart', 'Amei', `aria-pressed="${!!r.loved}"`)
+        : cell('rank', 'plus', 'Já fui') + cell('want', 'bookmark', saved ? 'Salvo' : 'Quero ir', `aria-pressed="${saved}"`)}</div>`;
+}
+
+function placeAction(a, p, after) {
+  const f = full(p);
+  if (a === 'open') placeSheet(p);
+  else if (a === 'rank') rankFlow(p);
+  else if (a === 'want') { toggleWant(p.id); after(); }
+  else if (a === 'love') { const r = db.ranked.find(x => x.id === p.id); r.loved = !r.loved; persist(); after(); }
+  else if (a === 'share') {
+    const text = `${f.name}${f.street ? ' — ' + f.street : ''}`, url = `https://www.google.com/maps/search/?api=1&query=${f.lat},${f.lon}`;
+    navigator.share ? navigator.share({ title: f.name, text, url }).catch(() => {}) : navigator.clipboard?.writeText(`${text} ${url}`);
+  }
+}
+
+function infoList(p) {
+  const f = full(p), week = parseHours(f.hours), rows = [];
+  if (f.street || f.bairro) rows.push(`<li>${icon('pin')}<a href="https://www.google.com/maps/search/?api=1&query=${f.lat},${f.lon}" target="_blank" rel="noopener">${esc([f.street, f.bairro, 'Curitiba'].filter(Boolean).join(' · '))}</a></li>`);
+  if (week) rows.push(`<li>${icon('clock')}<details><summary>${esc(hoursStatus(week).text)} ▾</summary><div class="week">${hoursWeek(week).map(d => `<span class="${d.today ? 'today' : ''}">${d.day}</span><span class="${d.today ? 'today' : ''}">${d.text}</span>`).join('')}</div></details></li>`);
+  else if (f.hours) rows.push(`<li>${icon('clock')}<span>${esc(f.hours)}</span></li>`);
+  if (f.phone) rows.push(`<li>${icon('phone')}<a href="tel:${esc(f.phone.split(';')[0].replace(/[^\d+]/g, ''))}">${esc(f.phone.split(';')[0])}</a></li>`);
+  if (f.site) rows.push(`<li>${icon('globe')}<a href="${esc(/^https?:/.test(f.site) ? f.site : 'https://' + f.site)}" target="_blank" rel="noopener">${esc(f.site.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''))}</a></li>`);
+  if (f.insta) rows.push(`<li>${icon('globe')}<a href="https://instagram.com/${esc(f.insta.replace(/^.*instagram\.com\//, '').replace(/^@/, ''))}" target="_blank" rel="noopener">@${esc(f.insta.replace(/^.*instagram\.com\//, '').replace(/^@/, '').replace(/\/$/, ''))}</a></li>`);
+  return rows.length ? `<div class="box"><ul class="info" style="list-style:none;margin:0;padding:0">${rows.join('')}</ul></div>` : '';
+}
+
+// ficha do lugar: sua nota em destaque, foto do Google como capa, suas visitas antes dos dados do lugar
+function placeSheet(p) {
+  const r = db.ranked.find(x => x.id === p.id), f = full(p);
+  const own = r ? visits(r).flatMap(v => v.photos || []).length : 0;
+  let hero = '', mid = '';
+  if (r) {
+    r.visits = visits(r);
+    const mine = rankedIn(r.cat), sc = scores(mine)[r.id], pos = mine.findIndex(x => x.id === r.id) + 1, tr = trend(r);
+    const vs = r.visits.map((v, i) => ({ v, i })).sort((a, b) => b.v.date - a.v.date);
+    hero = `<div class="hero"><span class="big cond z-${zone(sc)}">${sc}</span><div class="hpos"><b>${pos}º de ${mine.length}</b><span>no seu ranking de ${CATS[r.cat].toLowerCase()}</span>${tr ? `<span class="trend ${tr.up ? 'up' : 'down'}">${tr.up ? '↑ subiu' : '↓ caiu'} de ${tr.from} para ${tr.to}</span>` : ''}</div>
+      <button class="iconbtn hshare" data-a="story" aria-label="Compartilhar">${icon('share')}</button></div>`;
+    mid = `${galleryHTML(r)}
+      <div class="box"><h3>Suas visitas · ${vs.length}</h3><ol class="visits">${vs.map(({ v, i }) => `<li><button data-a="editvisit" data-vi="${i}" aria-label="Editar visita de ${fmtDay(v.date)}"><time>${fmtDay(v.date)}</time>${v.nota != null ? `<span class="vn cond z-${zone(v.nota)}">${v.nota}</span>` : ''}<span class="vt">${[withText(v.with), (v.tags || []).join(', '), esc(v.note)].filter(Boolean).join(' · ') || '<span style="color:var(--ink-2)">sem anotação</span>'}${v.photos?.length ? ` · ${v.photos.length} foto${v.photos.length > 1 ? 's' : ''}` : ''}</span>${icon('edit')}</button></li>`).join('')}</ol></div>`;
+  }
+  const sim = similarPlaces(p), inLists = db.lists.filter(l => l.items.includes(p.id)).length, pl = planFor(p.id);
+  const vals = Object.values(allScores()), C = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 7;
+  const myScore = r ? scores(rankedIn(r.cat))[r.id] : null, c = community(myScore == null ? [] : [{ user: 'eu', score: myScore, date: visits(r).at(-1).date }], C);
+  const comm = c.score != null ? communityBox(r || p, myScore) : `<p class="cline"><b>Nota de Curitiba</b> aparece com ${c.count + c.need} avaliações${c.count ? ` · ${c.count} até agora` : ''}</p>`;
+  sheet(`<div class="cover" data-id="${esc(p.id)}" ${own ? 'hidden' : ''}></div>
+    <div class="ph2"><h2>${esc(f.name)}${loveMark(p)}</h2><p class="pmeta">${esc([cuisines(f.cuisine).join(', ') || CATS[f.cat], f.bairro].filter(Boolean).join(' · '))}</p><p class="gstat" data-id="${esc(p.id)}"></p>
+      ${r ? '' : `<button class="iconbtn hshare top" data-a="share" aria-label="Compartilhar">${icon('share')}</button>`}</div>
+    ${hero}${actionCells(p)}${mid}
+    <div class="fat" data-id="${esc(p.id)}"></div>
+    <div class="ginfo" data-id="${esc(p.id)}">${infoList(p)}</div>
+    ${comm}
+    <div class="duo">${r ? '' : `<button class="btn secondary" data-a="plan">${icon('cal')}${pl ? esc(planText(pl)) : 'Marcar ida'}</button>`}<button class="btn secondary" data-a="addlist">${icon('plus')}${inLists ? `Em ${inLists} lista${inLists > 1 ? 's' : ''}` : 'Lista'}</button></div>
+    ${sim.length ? `<div class="box"><h3>Parecidos</h3><ol class="simil">${sim.map(x => `<li><button data-a="similar" data-id="${x.id}">${rowBody(x)}${db.ranked.some(y => y.id === x.id) ? pts(allScores()[x.id]) : ''}</button></li>`).join('')}</ol></div>` : ''}
+    <div class="actions"><button class="btn quiet" data-a="report">Informar erro nos dados</button>${r ? '<button class="btn quiet danger" data-a="remove">Tirar do ranking</button>' : ''}</div>`, e => {
+    const fr = e.target.closest('[data-friend]'); if (fr) return friendSheet(fr.dataset.friend);
+    const b = e.target.closest('[data-a]'); if (!b) return;
+    const a = b.dataset.a;
+    if (b.dataset.view != null) return openViewer(visits(r).flatMap(v => v.photos || []).reverse(), +b.dataset.view);
+    if (a === 'editvisit') return editVisit(p, r, +b.dataset.vi);
+    if (a === 'similar') return placeSheet(byId(b.dataset.id));
+    if (a === 'addlist') return listPicker(p);
+    if (a === 'plan') return planSheet(p);
+    if (a === 'report') return reportSheet(p);
+    if (a === 'story') return shareStory(r, b);
+    if (a === 'remove') { b.textContent = 'Confirmar: tirar do ranking'; b.dataset.a = 'remove2'; }
+    else if (a === 'remove2') { deletePhotos(visits(r).flatMap(v => v.photos || [])).catch(() => {}); db.ranked = db.ranked.filter(x => x.id !== p.id); persist(); dlg.close(); }
+    else placeAction(a, p, () => placeSheet(p));
+  });
+  friendsAtBox(p);
+  googleBox(p);
+}
+
+// --- idas marcadas (Quero ir): quando, com quem, convite pelo WhatsApp e "Foi?" depois ---
+let planCtx = null;   // ida que virou visita: passa quem e quando para a tela de nota
+const planFor = id => db.plans.find(pl => pl.placeId === id);
+function planText(pl) {
+  const d = new Date(pl.date), today = new Date(); today.setHours(0, 0, 0, 0);
+  const diff = Math.round((new Date(d).setHours(0, 0, 0, 0) - today) / 864e5);
+  const dia = diff === 0 ? 'hoje' : diff === 1 ? 'amanhã' : d.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'numeric' }).replace('.', '');
+  const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }).replace(':00', 'h').replace(':', 'h');
+  return [`${dia}, ${hora}`, withText(pl.with)].filter(Boolean).join(' · ');
+}
+const localDT = ms => { const d = new Date(ms - new Date(ms).getTimezoneOffset() * 6e4); return d.toISOString().slice(0, 16); };
+function inviteText(p, pl) {
+  const f = full(p), d = new Date(pl.date);
+  return [`Bora na ${f.name}? ${d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })}, às ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}.`,
+    [f.street, f.bairro].filter(Boolean).join(' · '), pl.note,
+    f.lat ? `Mapa: https://www.google.com/maps/search/?api=1&query=${f.lat},${f.lon}` : '', 'Marcado pela Lia'].filter(Boolean).join('\n');
+}
+function planSheet(p, justCreated) {
+  if (!p) return;
+  const ex = planFor(p.id), def = new Date(); def.setDate(def.getDate() + ((6 - def.getDay() + 7) % 7 || 7)); def.setHours(20, 0, 0, 0);   // padrão: próximo sábado, 20h
+  const pl = ex ? { ...ex, with: [...ex.with] } : { id: 'pl' + Date.now().toString(36), placeId: p.id, date: def.getTime(), with: [], note: '' };
+  sheet(`<h2>${ex ? 'Ida marcada' : 'Marcar ida'}</h2><p class="sub">${esc(full(p).name)}</p>
+    ${justCreated ? '<p class="okmsg">Ida marcada! Agora é só convidar quem vai.</p>' : ''}
+    <label class="lbl" for="pdate">Quando</label><input class="input" type="datetime-local" id="pdate" value="${localDT(pl.date)}" min="${localDT(Date.now())}">
+    <span class="lbl">Com quem?</span><div id="who">${whoPicker(pl.with)}</div>
+    <label class="lbl" for="pnote">Anotação</label><textarea id="pnote" rows="2" placeholder="Ex.: reservar mesa, pedir a polenta">${esc(pl.note)}</textarea>
+    <button class="btn primary wide" data-a="save" ${ex ? 'hidden' : ''}>${ex ? 'Salvar alterações' : 'Marcar ida'}</button>
+    ${ex ? `<div class="cells two"><a class="cell primary" data-a="wa" href="#">${icon('chat')}Convidar no WhatsApp</a><button class="cell" data-a="shareplan">${icon('share')}Compartilhar</button></div>
+      <div class="actions"><button class="btn quiet danger" data-a="unplan">Desmarcar ida</button></div>` : ''}`, e => {
+    if (whoClick(e, pl)) return changed();
+    const b = e.target.closest('[data-a]'); if (!b) return;
+    const a = b.dataset.a, read = () => { const v = dlg.querySelector('#pdate').value; if (v) pl.date = new Date(v).getTime(); pl.note = dlg.querySelector('#pnote').value.trim(); };
+    if (a === 'save') {
+      read(); db.plans = [...db.plans.filter(x => x.placeId !== p.id), { ...pl, created: ex?.created || Date.now() }];
+      if (!db.want.includes(p.id)) db.want.push(p.id);
+      persist();
+      if (ex) { dlg.close(); toast('Ida salva'); } else planSheet(p, true);   // ida nova: reabre já com os botões de convite
+    } else if (a === 'wa') { e.preventDefault(); read(); window.open('https://wa.me/?text=' + encodeURIComponent(inviteText(p, pl)), '_blank'); }
+    else if (a === 'shareplan') { read(); const text = inviteText(p, pl); navigator.share ? navigator.share({ text }).catch(() => {}) : navigator.clipboard?.writeText(text); }
+    else if (a === 'unplan') { b.textContent = 'Confirmar: desmarcar'; b.dataset.a = 'unplan2'; }
+    else if (a === 'unplan2') { db.plans = db.plans.filter(x => x.placeId !== p.id); persist(); dlg.close(); }
+  });
+  const changed = () => { const sv = dlg.querySelector('[data-a="save"]'); if (sv) sv.hidden = false; };   // mudou algo: mostra "Salvar alterações"
+  dlg.oninput = e => { whoInput(e, pl); if (e.target.id !== 'pq') changed(); };
+}
+// Depois da hora marcada (2h de folga), pergunta uma vez: "Foi?" → nota já com as pessoas; ou remarcar/desmarcar.
+let plansChecked = false;
+function checkPlans() {
+  if (plansChecked || !places || dlg.open || $('#onb')) return;
+  const due = db.plans.filter(pl => pl.date < Date.now() - 2 * 36e5 && !pl.asked).sort((a, b) => a.date - b.date)[0];
+  if (!due) return;
+  plansChecked = true;
+  const p = byId(due.placeId); if (!p) return;
+  due.asked = true; persist();
+  sheet(`<h2>Foi na ${esc(full(p).name)}?</h2><p class="sub">Estava marcado para ${esc(planText(due))}</p>
+    <div class="actions" style="margin-top:18px"><button class="btn primary" data-a="went">Fui, dar nota</button><button class="btn secondary" data-a="replan">Remarcar</button><button class="btn quiet danger" data-a="drop">Não vou mais</button></div>`, e => {
+    const a = e.target.closest('[data-a]')?.dataset.a;
+    if (a === 'went') { planCtx = due; rankFlow(p); }
+    else if (a === 'replan') { delete due.asked; due.date = Date.now() + 864e5; persist(); planSheet(p); }
+    else if (a === 'drop') { db.plans = db.plans.filter(x => x.id !== due.id); persist(); dlg.close(); }
+  });
+}
+
+// --- ocasião da visita ---
+const TAGS = ['Aniversário', 'Encontro', 'Família', 'Amigos', 'Trabalho', 'Comemoração', 'Sozinho', 'Delivery'];
+const tagPicker = v => `<div class="people tags">${TAGS.map(t => `<button class="chip-p tagc" data-tag="${t}" aria-pressed="${(v.tags || []).includes(t)}">${t}</button>`).join('')}</div>`;
+function tagClick(e, v) {
+  const b = e.target.closest('[data-tag]'); if (!b) return false;
+  v.tags ||= []; const t = b.dataset.tag;
+  v.tags = v.tags.includes(t) ? v.tags.filter(x => x !== t) : [...v.tags, t];
+  b.setAttribute('aria-pressed', v.tags.includes(t)); persist(); return true;
+}
+
+// --- aberto agora / perto de mim ---
+let queroOpen = false, nearOn = false, browse = null;
+const isOpen = p => hoursStatus(parseHours(full(p).hours))?.open === true;
+const km = (p) => { if (!me || !p.lat) return null; const [lo, la] = me, R = 6371, r = x => x * Math.PI / 180;
+  const a = Math.sin(r(p.lat - la) / 2) ** 2 + Math.cos(r(la)) * Math.cos(r(p.lat)) * Math.sin(r(p.lon - lo) / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(a)); };
+const fmtKm = d => d < 1 ? `${Math.round(d * 1000 / 50) * 50} m` : `${d.toFixed(1).replace('.', ',')} km`;
+function filterNear(list, onlyOpen) {
+  let out = onlyOpen ? list.filter(isOpen) : list;
+  if (nearOn && me) out = [...out].sort((a, b) => (km(a) ?? 1e9) - (km(b) ?? 1e9));
+  return out;
+}
+const placeSub = p => { const d = nearOn && km(p); const st = hoursStatus(parseHours(full(p).hours));
+  return [d != null && d !== false ? fmtKm(d) : '', st?.open ? 'aberto agora' : '', meta(p)].filter(Boolean).join(' · '); };
+const locate = () => new Promise((ok, fail) => navigator.geolocation
+  ? navigator.geolocation.getCurrentPosition(pos => { me = [pos.coords.longitude, pos.coords.latitude]; ok(me); }, fail, { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 })
+  : fail(new Error('sem localização')));
+// aviso curto acima da barra, some sozinho
+function toast(t) {
+  const el = document.createElement('div'); el.className = 'toast'; el.setAttribute('role', 'status'); el.textContent = t;
+  document.body.append(el); setTimeout(() => el.classList.add('out'), 1800); setTimeout(() => el.remove(), 2200);
+}
+const alertMsg = t => sheet(`<p style="padding-right:30px">${esc(t)}</p>`, () => {});
+
+// --- parecidos e informar erro (final da ficha) ---
+function similarPlaces(p) {
+  const f = full(p), cs = (f.cuisine || '').split(';').filter(Boolean);
+  if (!cs.length && !f.bairro) return [];
+  return (places || []).filter(x => x.id !== p.id && x.cat === f.cat)
+    .map(x => ({ x, s: (x.cuisine || '').split(';').filter(c => cs.includes(c)).length * 2 + (f.bairro && x.bairro === f.bairro ? 1 : 0) }))
+    .filter(o => o.s >= (cs.length ? 2 : 1)).sort((a, b) => b.s - a.s).slice(0, 5).map(o => o.x);
+}
+function reportSheet(p) {
+  const f = full(p), kinds = ['Horário errado', 'Endereço errado', 'Telefone ou site errado', 'Fechou de vez', 'Outro'];
+  const osm = /^[nwr]\d+$/.test(p.id) ? `https://www.openstreetmap.org/edit?${{ n: 'node', w: 'way', r: 'relation' }[p.id[0]]}=${p.id.slice(1)}` : '';
+  let kind = '';
+  sheet(`<h2>Informar erro</h2><p class="sub">${esc(f.name)}</p>
+    <div class="people" style="margin-top:14px">${kinds.map(k => `<button class="chip-p tagc" data-kind="${k}" aria-pressed="false">${k}</button>`).join('')}</div>
+    <label class="lbl" for="rnote">O que está errado? <small class="sub">opcional</small></label><textarea id="rnote" rows="2" maxlength="500" placeholder="Ex.: fecha às 22h, não 24 horas"></textarea>
+    <button class="btn primary wide" data-a="send" disabled>Enviar</button>
+    ${osm ? `<p class="sub" style="margin-top:12px">Os dados vêm do OpenStreetMap, um mapa aberto. Se quiser, <a href="${osm}" target="_blank" rel="noopener">corrija direto lá</a>.</p>` : ''}`, async e => {
+    const k = e.target.closest('[data-kind]');
+    if (k) { kind = k.dataset.kind; dlg.querySelectorAll('[data-kind]').forEach(x => x.setAttribute('aria-pressed', x === k)); dlg.querySelector('[data-a="send"]').disabled = false; return; }
+    const b = e.target.closest('[data-a="send"]'); if (!b || !kind) return;
+    b.disabled = true; b.innerHTML = '<span class="spin" aria-label="Enviando"></span>';
+    try { await sendReport({ place_id: p.id, place_name: f.name, kind, note: dlg.querySelector('#rnote').value.trim() }); alertMsg('Obrigado! Vamos conferir.'); }
+    catch (err) { b.disabled = false; b.textContent = 'Enviar'; alertMsg(errorText(err)); }
+  });
+}
+
+// --- listas próprias ---
+function listPicker(p) {
+  sheet(`<h2>Adicionar a uma lista</h2><p class="sub">${esc(full(p).name)}</p>
+    <div class="lists">${db.lists.map(l => `<button class="lrow" data-list="${l.id}" aria-pressed="${l.items.includes(p.id)}"><span class="chk">${icon('check')}</span><span class="t"><b>${esc(l.name)}</b><small>${l.items.length} lugar${l.items.length === 1 ? '' : 'es'}</small></span></button>`).join('')}</div>
+    <label class="lbl" for="lname">Nova lista</label><div class="row-inp"><input class="input" id="lname" maxlength="60" placeholder="Ex.: Cafés para trabalhar"><button class="btn primary" data-a="newlist">Criar</button></div>
+    <button class="btn secondary wide" data-a="done">Pronto</button>`, e => {
+    const lb = e.target.closest('[data-list]');
+    if (lb) { const l = db.lists.find(x => x.id === lb.dataset.list); l.items = l.items.includes(p.id) ? l.items.filter(x => x !== p.id) : [...l.items, p.id]; persist(); lb.setAttribute('aria-pressed', l.items.includes(p.id)); lb.querySelector('small').textContent = `${l.items.length} lugar${l.items.length === 1 ? '' : 'es'}`; return; }
+    const a = e.target.closest('[data-a]')?.dataset.a;
+    if (a === 'newlist') { const name = dlg.querySelector('#lname').value.trim(); if (!name) return dlg.querySelector('#lname').focus();
+      db.lists.push({ id: 'l' + Date.now().toString(36), name, items: [p.id], created: Date.now() }); persist(); listPicker(p); }
+    else if (a === 'done') placeSheet(p);
+  });
+}
+function listSheet(id) {
+  const l = db.lists.find(x => x.id === id); if (!l) return profileSheet();
+  const sc = allScores(), items = l.items.map(byId).filter(Boolean);
+  sheet(`<h2>${esc(l.name)}</h2><p class="sub">${items.length} lugar${items.length === 1 ? '' : 'es'}</p>
+    ${items.length ? `<ol class="simil" style="margin-top:12px">${items.map(x => `<li class="lrem"><button data-a="open" data-id="${x.id}">${rowBody(x)}${sc[x.id] != null ? pts(sc[x.id]) : ''}</button><button class="iconbtn" data-a="rm" data-id="${x.id}" aria-label="Tirar da lista">${icon('x')}</button></li>`).join('')}</ol>`
+      : '<p class="msg" style="padding:16px 0">Lista vazia. Abra um lugar e toque em "Adicionar a uma lista".</p>'}
+    <label class="lbl" for="lname">Nome</label><div class="row-inp"><input class="input" id="lname" maxlength="60" value="${esc(l.name)}"><button class="btn secondary" data-a="rename">Salvar</button></div>
+    <div class="actions"><button class="btn quiet" data-a="back">Voltar ao perfil</button><button class="btn quiet danger" data-a="del">Apagar lista</button></div>`, e => {
+    const b = e.target.closest('[data-a]'); if (!b) return;
+    const a = b.dataset.a;
+    if (a === 'open') placeSheet(byId(b.dataset.id));
+    else if (a === 'rm') { l.items = l.items.filter(x => x !== b.dataset.id); persist(); listSheet(id); }
+    else if (a === 'rename') { const n = dlg.querySelector('#lname').value.trim(); if (n) { l.name = n; persist(); listSheet(id); } }
+    else if (a === 'back') profileSheet();
+    else if (a === 'del') { b.textContent = 'Confirmar: apagar lista'; b.dataset.a = 'del2'; }
+    else if (a === 'del2') { db.lists = db.lists.filter(x => x.id !== id); persist(); profileSheet(); }
+  });
+}
+
+// --- perfil: favoritos, números, suas notas e listas ---
+function profileSheet() {
+  const sc = allScores(), year = new Date().getFullYear(), vs = db.ranked.flatMap(r => visits(r));
+  const yearPlaces = db.ranked.filter(r => visits(r).some(v => new Date(v.date).getFullYear() === year)).length;
+  const bairros = new Set(db.ranked.map(r => full(r).bairro).filter(Boolean)).size;
+  db.favs = db.favs.filter(id => db.ranked.some(r => r.id === id));
+  const favs = db.favs.map(id => db.ranked.find(r => r.id === id));
+  const hist = Array(10).fill(0); Object.values(sc).forEach(n => hist[Math.min(10, Math.max(1, n)) - 1]++);
+  const max = Math.max(1, ...hist), photo = r => visits(r).flatMap(v => v.photos || []).at(-1);
+  sheet(`<div class="prof"><i class="avatar big">${esc((profile?.first_name || '?')[0].toUpperCase())}</i><div><h2>${esc([profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Você')}</h2>${profile ? `<p class="sub">@${esc(profile.username)}</p>` : ''}</div></div>
+    ${syncUser ? `<p class="syncline" data-s="${syncState}">${SYNC_TEXT[syncState] || ''}</p>` : ''}
+    <div class="stats"><div><b class="cond">${db.ranked.length}</b><span>lugares</span></div><div><b class="cond">${yearPlaces}</b><span>em ${year}</span></div><div><b class="cond">${vs.length}</b><span>visitas</span></div><div><b class="cond">${bairros}</b><span>bairros</span></div></div>
+    ${syncUser ? `<div class="box"><h3>Amigos</h3>
+      <div class="fcount"><button data-a="flist" data-k="followers"><b class="cond">${social.followers.length}</b> seguidor${social.followers.length === 1 ? '' : 'es'}</button><button data-a="flist" data-k="following"><b class="cond">${social.following.filter(f => f.status === 'accepted').length}</b> seguindo</button></div>
+      ${social.requests.length ? `<p class="lbl" style="margin-top:12px">Pedidos para seguir você</p><ol class="simil">${social.requests.map(u => `<li class="req"><button data-friend="${u.id}">${uAvatar(u)}<span class="t"><b>${esc(uName(u))}</b><small>@${esc(u.username)}</small></span></button>
+        <button class="btn primary sm" data-a="accept" data-id="${u.id}">Aceitar</button><button class="btn quiet sm" data-a="reject" data-id="${u.id}">Recusar</button></li>`).join('')}</ol>` : ''}
+      <button class="btn secondary wide" data-a="findfriends" style="margin-top:12px">${icon('search')}Encontrar amigos</button></div>` : ''}
+    <div class="box"><h3>Favoritos</h3><div class="favs">${[0, 1, 2, 3].map(i => favs[i]
+      ? `<button class="fav" data-a="openfav" data-id="${favs[i].id}">${photo(favs[i]) ? `<img data-path="${esc(photo(favs[i]))}" alt="">` : `<span class="cond z-${zone(sc[favs[i].id])}">${sc[favs[i].id]}</span>`}<small>${esc(favs[i].name)}</small></button>`
+      : `<button class="fav empty" data-a="editfavs" aria-label="Escolher favorito">${icon('plus')}</button>`).join('')}</div>
+      ${db.ranked.length ? '<button class="btn quiet" data-a="editfavs" style="padding:0;margin-top:6px">Escolher favoritos</button>' : ''}</div>
+    <div class="box"><h3>Suas notas</h3><div class="nhist">${hist.map((n, i) => `<div><i class="z-${zone(i + 1)}" style="height:${(n / max) * 100}%"></i><span>${i + 1}</span></div>`).join('')}</div></div>
+    <div class="box"><h3>Listas · ${db.lists.length}</h3>${db.lists.length ? `<ol class="simil">${db.lists.map(l => `<li><button data-a="openlist" data-id="${l.id}"><span class="t"><b>${esc(l.name)}</b><small>${l.items.length} lugar${l.items.length === 1 ? '' : 'es'}</small></span></button></li>`).join('')}</ol>` : '<p class="sub">Abra um lugar e toque em "Adicionar a uma lista" para criar a primeira.</p>'}</div>
+    ${syncUser ? `<div class="box" id="pushbox"><h3>Avisos</h3>${pushBoxHTML()}</div>` : ''}
+    ${syncUser ? `<div class="box"><h3>Quem vê o quê</h3><p class="sub">Seu nome e @ aparecem na busca para quem tem conta. O resto, você escolhe.</p>
+      ${PRIV.map(([k, label]) => `<label class="privrow"><span>${label}</span><select data-priv="${k}">${PRIV_OPTS.map(([v, t]) => `<option value="${v}"${(privacy()[k]) === v ? ' selected' : ''}>${t}</option>`).join('')}</select></label>`).join('')}</div>` : ''}
+    <div class="box legal"><button data-a="contact">${icon('chat')}Fale com a Lia</button><button data-a="export">${icon('share')}Baixar meus dados</button>
+      <a href="privacidade.html">Política de privacidade</a><a href="termos.html">Termos de uso</a></div>
+    <div class="actions"><button class="btn quiet" data-a="logout">Sair da conta</button><button class="btn quiet danger" data-a="delacc">Excluir minha conta</button></div>`, async e => {
+    const fr = e.target.closest('[data-friend]'); if (fr) return friendSheet(fr.dataset.friend);
+    const b = e.target.closest('[data-a]'); if (!b) return;
+    const a = b.dataset.a;
+    if (a === 'openfav') placeSheet(byId(b.dataset.id));
+    else if (a === 'editfavs') favPicker();
+    else if (a === 'openlist') listSheet(b.dataset.id);
+    else if (a === 'contact') contactSheet();
+    else if (a === 'findfriends') friendSearch();
+    else if (a === 'pushon') enablePush(b);
+    else if (a === 'pushoff') disablePush(b);
+    else if (a === 'flist') peopleList(b.dataset.k);
+    else if (a === 'accept' || a === 'reject') { b.disabled = true; try { await (a === 'accept' ? acceptFollow : removeFollower)(b.dataset.id); await loadSocial(); toast(a === 'accept' ? 'Pedido aceito' : 'Pedido recusado'); profileSheet(); } catch (err) { b.disabled = false; alertMsg(errorText(err)); } }
+    else if (a === 'export') exportData();
+    else if (a === 'delacc') deleteAccountSheet();
+    else if (a === 'logout') { b.disabled = true; await stopSync(); await signOut().catch(() => {}); dlg.close(); $('#me').hidden = true; profile = null; startOnboarding({ onDone: showAccount }); }
+  });
+  dlg.onchange = privChange;
+}
+// --- Avisos (Web Push) ---
+const VAPID_PUBLIC = 'BNPAhqCVXjof92qktOLdLDjtnNTBspoOSsq3bMzdOzNMrTkzoj4opItCsYaIvFbfwCW4cPN0uNiEAsPk7eIzKyQ';
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) && !/Android/.test(navigator.userAgent);
+let pushOn = false;
+async function pushState() {   // descobre se este aparelho já está inscrito
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  const reg = await navigator.serviceWorker.ready.catch(() => null);
+  pushOn = !!(await reg?.pushManager.getSubscription().catch(() => null)) && Notification.permission === 'granted';
+  const box = document.getElementById('pushbox'); if (box) box.innerHTML = '<h3>Avisos</h3>' + pushBoxHTML();
+}
+function pushBoxHTML() {
+  const what = '<p class="sub">Pedidos para seguir, marcações, quando um amigo vai num lugar do seu Quero ir e o "Foi?" depois de uma ida marcada.</p>';
+  if (isIOS && !standalone) return what + '<p class="sub" style="margin-top:8px">No iPhone, os avisos funcionam com a Lia instalada: no Safari, toque em Compartilhar e depois em "Adicionar à Tela de Início". Abra por lá e volte aqui.</p>';
+  if (!('PushManager' in window) || !('Notification' in window)) return what + '<p class="sub" style="margin-top:8px">Este navegador não recebe avisos.</p>';
+  if (Notification.permission === 'denied') return what + '<p class="sub" style="margin-top:8px">Os avisos estão bloqueados para a Lia. Libere nas configurações do navegador (Notificações) e volte aqui.</p>';
+  return what + (pushOn ? `<div class="pushrow"><span class="st-open">Avisos ligados neste aparelho</span><button class="btn quiet sm" data-a="pushoff">Desligar</button></div>`
+    : `<button class="btn primary wide" data-a="pushon" style="margin-top:10px">Ativar avisos</button>`);
+}
+const b64u = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - s.length % 4) % 4)), c => c.charCodeAt(0));
+async function enablePush(b) {
+  b.disabled = true;
+  try {
+    if (await Notification.requestPermission() !== 'granted') { await pushState(); return; }
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u(VAPID_PUBLIC) });
+    await savePushSub(sub); toast('Avisos ligados');
+  } catch (err) { b.disabled = false; alertMsg(errorText(err)); }
+  await pushState();
+}
+async function disablePush(b) {
+  b.disabled = true;
+  try { const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription(); if (sub) { await deletePushSub(sub.endpoint).catch(() => {}); await sub.unsubscribe(); } toast('Avisos desligados'); }
+  catch (err) { alertMsg(errorText(err)); }
+  await pushState();
+}
+// tocar num aviso: ?lugar=ID abre a ficha; ?ver=perfil abre o perfil; ?ver=amigos abre o Diário dos amigos
+function openFromLink(href) {
+  const q = new URL(href, location.href).searchParams, lugar = q.get('lugar'), ver = q.get('ver');
+  if (!lugar && !ver) return false;
+  const go = () => {
+    if (lugar) { const p = byId(lugar); if (p) placeSheet(p); }
+    else if (ver === 'perfil') profileSheet();
+    else if (ver === 'amigos') { tab = 'atividade'; diaryMode = 'friends'; feed = null; render(); loadSocial().then(render); }
+  };
+  if (places) go(); else { const w = setInterval(() => { if (places) { clearInterval(w); go(); } }, 200); }
+  return true;
+}
+navigator.serviceWorker?.addEventListener('message', e => { if (e.data?.lia === 'open') openFromLink(e.data.url); });
+
+// --- Amigos ---
+const PRIV = [['ranking', 'Ranking e notas'], ['notes', 'Anotações das visitas'], ['photos', 'Fotos'], ['want', 'Quero ir']];
+const PRIV_OPTS = [['followers', 'Seguidores que aprovei'], ['all', 'Todos com conta'], ['none', 'Só eu']];
+const privacy = () => ({ ranking: 'followers', notes: 'followers', photos: 'followers', want: 'followers', ...(profile?.privacy || {}) });
+const uName = u => [u.first_name, u.last_name].filter(Boolean).join(' ') || '@' + u.username;
+const uAvatar = u => avatar({ name: u.first_name || u.username || '?', userId: u.id });
+async function loadSocial() {
+  if (!syncUser) return;
+  try { [social, mentions] = await Promise.all([myFollows(), myMentions()]); } catch { return; }
+  $('#me').classList.toggle('dot', social.requests.length > 0);
+  document.querySelector('nav [data-tab="atividade"]')?.classList.toggle('dot', mentions.some(m => !m.seen));
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) loadSocial(); });
+// avisa quem tem Lia e foi marcado na visita (só quem já tem ligação com você; o banco recusa o resto)
+function notifyWith(place, visit) {
+  if (!syncUser) return;
+  const linked = new Set([...social.followers, ...social.following.filter(f => f.status === 'accepted')].map(u => u.id));
+  const rows = (visit.with || []).map(person).filter(pp => pp?.userId && linked.has(pp.userId))
+    .map(pp => ({ target: pp.userId, place_id: place.id, place_name: place.name, visit_date: visit.date }));
+  sendMentions(rows).catch(() => {});
+}
+function friendSearch() {
+  sheet(`<h2>Encontrar amigos</h2><p class="sub">Busque pelo nome ou pelo @ de quem já tem Lia.</p>
+    <label class="field qs-field">${icon('search')}<input id="fq" type="search" autocomplete="off" placeholder="Nome ou @usuário"></label><ol class="simil" id="fres"></ol>`, e => {
+    const b = e.target.closest('[data-friend]'); if (b) friendSheet(b.dataset.friend);
+  });
+  let t; dlg.oninput = e => {
+    if (e.target.id !== 'fq') return; clearTimeout(t);
+    t = setTimeout(async () => {
+      const found = await searchProfiles(e.target.value).catch(() => []), box = dlg.querySelector('#fres'); if (!box) return;
+      box.innerHTML = found.map(u => `<li><button data-friend="${u.id}">${uAvatar(u)}<span class="t"><b>${esc(uName(u))}</b><small>@${esc(u.username)}</small></span></button></li>`).join('')
+        || (e.target.value.trim().length > 1 ? '<p class="sub" style="padding:10px 0">Ninguém com esse nome ainda. Convide pelo WhatsApp!</p>' : '');
+    }, 250);
+  };
+  setTimeout(() => dlg.querySelector('#fq')?.focus(), 50);
+}
+function peopleList(k) {
+  const list = k === 'followers' ? social.followers : social.following.filter(f => f.status === 'accepted');
+  sheet(`<h2>${k === 'followers' ? 'Seguidores' : 'Seguindo'}</h2>${list.length ? `<ol class="simil">${list.map(u => `<li><button data-friend="${u.id}">${uAvatar(u)}<span class="t"><b>${esc(uName(u))}</b><small>@${esc(u.username)}</small></span></button></li>`).join('')}</ol>`
+    : `<p class="sub">${k === 'followers' ? 'Ninguém segue você ainda.' : 'Você ainda não segue ninguém.'}</p>`}
+    <button class="btn secondary wide" data-a="find" style="margin-top:14px">${icon('search')}Encontrar amigos</button>`, e => {
+    const b = e.target.closest('[data-friend]'); if (b) return friendSheet(b.dataset.friend);
+    if (e.target.closest('[data-a="find"]')) friendSearch();
+  });
+}
+async function friendSheet(id) {
+  sheet('<div class="loading"><span class="spin" aria-label="Carregando"></span></div>', () => {});
+  let v; try { v = await friendView(id); } catch (err) { return alertMsg(errorText(err)); }
+  if (!dlg.open || !v?.profile) return;
+  const u = v.profile, can = v.can || {};
+  const followBtn = v.follow === 'accepted' ? `<button class="btn secondary sm" data-f="unfollow">Seguindo</button>`
+    : v.follow === 'pending' ? `<button class="btn secondary sm" data-f="cancel">Pedido enviado</button>`
+    : `<button class="btn primary sm" data-f="follow">${v.follows_me === 'accepted' ? 'Seguir de volta' : 'Seguir'}</button>`;
+  const ranked = (v.ranked || []).map(r => ({ ...r, visits: r.visits || [] }));
+  const lists = Object.keys(CATS).map(c => {
+    const mine = ranked.filter(r => r.cat === c).sort((a, b) => b.value - a.value); if (!mine.length) return '';
+    return `<h3 class="group" style="padding:0">${CATS[c]} · ${mine.length}</h3><ol class="table">${mine.map((r, i) => {
+      const last = [...r.visits].sort((a, b) => b.date - a.date)[0] || {}, n = Math.floor(r.value), ph = r.visits.flatMap(x => x.photos || []).at(-1);
+      const sub = [(last.tags || []).join(', '), last.note && `“${esc(last.note)}”`].filter(Boolean).join(' · ') || meta(r);
+      return `<li><button class="row" data-fplace="${esc(r.id)}">${posBadge(i + 1, zone(n))}${rowBody(r, sub)}${ph ? `<img class="rthumb" data-path="${esc(ph)}" alt="">` : ''}${pts(n)}</button></li>`; }).join('')}</ol>`;
+  }).join('');
+  const want = (v.want || []).map(byId).filter(Boolean);
+  const locked = what => `<p class="sub lock">${what} de @${esc(u.username)} ${v.follow === 'accepted' ? 'não estão abertos.' : 'aparecem quando ela aceitar seu pedido.'}</p>`;
+  sheet(`<div class="prof">${uAvatar(u).replace('class="pp', 'class="pp big')}<div style="flex:1;min-width:0"><h2>${esc(uName(u))}</h2><p class="sub">@${esc(u.username)}</p></div></div>
+    <div class="fhead"><span><b class="cond">${v.followers}</b> seguidor${v.followers == 1 ? '' : 'es'}</span><span><b class="cond">${v.following}</b> seguindo</span>${followBtn}</div>
+    ${v.follows_me === 'pending' ? `<div class="box req-box"><p><b>${esc(u.first_name || '@' + u.username)}</b> quer seguir você.</p><button class="btn primary sm" data-f="accept">Aceitar</button><button class="btn quiet sm" data-f="reject">Recusar</button></div>` : ''}
+    ${can.ranking ? (lists || '<p class="sub" style="margin-top:14px">Ainda não ranqueou nenhum lugar.</p>') : locked('O ranking e as notas')}
+    ${can.want ? (want.length ? `<h3 class="group" style="padding:0">Quer ir · ${want.length}</h3><ol class="table">${want.map(p => `<li><button class="row" data-fplace="${esc(p.id)}">${rowBody(p)}</button></li>`).join('')}</ol>` : '') : ''}`, async e => {
+    const pl = e.target.closest('[data-fplace]');
+    if (pl) { const p = byId(pl.dataset.fplace) || ranked.find(r => r.id === pl.dataset.fplace); return p && placeSheet(p); }
+    const b = e.target.closest('[data-f]'); if (!b) return;
+    const f = b.dataset.f;
+    if (f === 'unfollow' && !b.dataset.sure) { b.dataset.sure = 1; b.textContent = 'Deixar de seguir?'; return; }
+    b.disabled = true;
+    try {
+      if (f === 'follow') await follow(id);
+      else if (f === 'cancel' || f === 'unfollow') await unfollow(id);
+      else if (f === 'accept') await acceptFollow(id);
+      else if (f === 'reject') await removeFollower(id);
+      await loadSocial(); toast({ follow: 'Pedido enviado', cancel: 'Pedido cancelado', unfollow: 'Você deixou de seguir', accept: 'Pedido aceito', reject: 'Pedido recusado' }[f]);
+      friendSheet(id);
+    } catch (err) { b.disabled = false; alertMsg(errorText(err)); }
+  });
+}
+// ficha do lugar: horário, telefone, preço e foto vindos do Google (buscados na hora; só o id do lugar fica guardado)
+async function googleBox(p) {
+  const noCover = () => { const c = dlg.querySelector(`.cover[data-id="${CSS.escape(p.id)}"]`); if (c) c.hidden = true; };
+  if (!googleOn()) return noCover();
+  const f = full(p); let d;
+  try { d = await googlePlace(f); } catch { return noCover(); }   // sem internet ou cota esgotada: fica o que veio do OpenStreetMap
+  const box = dlg.open && dlg.querySelector(`.ginfo[data-id="${CSS.escape(p.id)}"]`); if (!box) return;
+  if (!d) { noCover(); box.insertAdjacentHTML('beforeend', '<p class="sub gnone">O Google não tem este lugar. Ele pode ter fechado ou mudado de nome; se souber, use "Informar erro nos dados".</p>'); return; }
+  const rows = [], days = d.regularOpeningHours?.weekdayDescriptions, today = (new Date().getDay() + 6) % 7;   // o Google começa na segunda
+  if (d.businessStatus === 'CLOSED_PERMANENTLY') rows.push(`<li class="gwarn">${icon('clock')}<span>Fechou de vez, segundo o Google</span></li>`);
+  else if (d.businessStatus === 'CLOSED_TEMPORARILY') rows.push(`<li class="gwarn">${icon('clock')}<span>Fechado temporariamente, segundo o Google</span></li>`);
+  if (f.street || f.bairro) rows.push(`<li>${icon('pin')}<a href="${esc(d.googleMapsUri || `https://www.google.com/maps/search/?api=1&query=${f.lat},${f.lon}`)}" target="_blank" rel="noopener">${esc([f.street, f.bairro, 'Curitiba'].filter(Boolean).join(' · '))}</a></li>`);
+  if (days?.length) {
+    const open = d.currentOpeningHours?.openNow, todayTxt = (days[today] || '').replace(/^[^:]+:\s*/, '');
+    rows.push(`<li>${icon('clock')}<details><summary><span class="${open ? 'st-open' : 'st-closed'}">${open ? 'Aberto agora' : 'Fechado agora'}</span> · hoje ${esc(todayTxt)} ▾</summary><div class="week">${days.map((t, i) => { const [k, ...v] = t.split(': ');
+      return `<span class="${i === today ? 'today' : ''}">${esc(k.replace('-feira', ''))}</span><span class="${i === today ? 'today' : ''}">${esc(v.join(': '))}</span>`; }).join('')}</div></details></li>`);
+  } else if (f.hours) rows.push(`<li>${icon('clock')}<span>${esc(f.hours)}</span></li>`);
+  const phone = d.nationalPhoneNumber || f.phone?.split(';')[0];
+  if (phone) rows.push(`<li>${icon('phone')}<a href="tel:${esc(phone.replace(/[^\d+]/g, ''))}">${esc(phone)}</a></li>`);
+  const site = d.websiteUri || (f.site && (/^https?:/.test(f.site) ? f.site : 'https://' + f.site));
+  if (site) { const clean = site.replace(/[?#].*$/, ''); rows.push(`<li>${icon('globe')}<a href="${esc(clean)}" target="_blank" rel="noopener">${esc(clean.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '').slice(0, 40))}</a></li>`); }
+  if (f.insta) rows.push(`<li>${icon('globe')}<a href="https://instagram.com/${esc(f.insta.replace(/^.*instagram\.com\//, '').replace(/^@/, ''))}" target="_blank" rel="noopener">@${esc(f.insta.replace(/^.*instagram\.com\//, '').replace(/^@/, '').replace(/\/$/, ''))}</a></li>`);
+  const price = priceText(d), rating = d.rating ? `${String(d.rating).replace('.', ',')} no Google${d.userRatingCount ? ` (${d.userRatingCount.toLocaleString('pt-BR')})` : ''}` : '';
+  if (price || rating) rows.push(`<li>${icon('tag')}<span>${esc([price, rating].filter(Boolean).join(' · '))}</span></li>`);
+  const ph = d.photos?.[0], who = ph?.authorAttributions?.[0];
+  {
+    const cov = dlg.querySelector(`.cover[data-id="${CSS.escape(p.id)}"]`), st = dlg.querySelector(`.gstat[data-id="${CSS.escape(p.id)}"]`), g = gSummary(d);
+    if (cov && !cov.hidden && ph) cov.innerHTML = `<img src="${esc(googlePhoto(ph, 1000))}" alt="Foto de ${esc(f.name)}">${who ? `<span>Foto: ${esc(who.displayName)} · Google Maps</span>` : ''}`;
+    else if (cov) cov.hidden = true;
+    if (st) st.innerHTML = g.closed ? `<b class="st-closed">${g.closed}</b>` : g.hasHours ? `<b class="${g.open ? 'st-open' : 'st-closed'}">${g.open ? 'Aberto agora' : 'Fechado agora'}</b> · hoje ${esc(g.todayTxt)}` : '';
+    box.innerHTML = `<div class="box"><ul class="info" style="list-style:none;margin:0;padding:0">${rows.join('')}</ul><p class="gattr">Dados do Google Maps</p></div>`;
+  }
+}
+
+// resumo do Google em uma linha: aberto/fechado com o horário de hoje, preço e nota
+function gSummary(d) {
+  const days = d.regularOpeningHours?.weekdayDescriptions, today = (new Date().getDay() + 6) % 7;
+  const closed = d.businessStatus === 'CLOSED_PERMANENTLY' ? 'Fechou de vez' : d.businessStatus === 'CLOSED_TEMPORARILY' ? 'Fechado temporariamente' : '';
+  const open = d.currentOpeningHours?.openNow, todayTxt = days ? (days[today] || '').replace(/^[^:]+:\s*/, '') : '';
+  return { closed, open, hasHours: !!days?.length, todayTxt, price: priceText(d), rating: d.rating ? String(d.rating).replace('.', ',') : '', count: d.userRatingCount || 0 };
+}
+// cartão do mapa: foto pequena e uma linha com horário, preço e nota (mesma consulta da ficha, guardada na sessão)
+async function mapGoogle(p) {
+  if (!googleOn()) return;
+  let d; try { d = await googlePlace(full(p)); } catch { d = undefined; }
+  const box = document.querySelector(`#mapcard .mg[data-id="${CSS.escape(p.id)}"]`); if (!box) return;
+  if (d === undefined) { box.innerHTML = ''; return; }   // sem internet ou cota do dia esgotada
+  if (!d) { box.innerHTML = '<p class="sub gnone">O Google não tem este lugar. Ele pode ter fechado ou mudado de nome.</p>'; return; }
+  const g = gSummary(d), ph = d.photos?.[0];
+  const status = g.closed ? `<b class="st-closed">${g.closed}</b>` : g.hasHours ? `<b class="${g.open ? 'st-open' : 'st-closed'}">${g.open ? 'Aberto' : 'Fechado'}</b> · hoje ${esc(g.todayTxt)}` : '';
+  const meta = [g.price, g.rating && `${g.rating} no Google`].filter(Boolean).join(' · ');
+  if (!status && !meta && !ph) { box.innerHTML = ''; return; }
+  box.innerHTML = `${ph ? `<img src="${esc(googlePhoto(ph, 240))}" alt="" loading="lazy">` : ''}<div>${status ? `<p>${status}</p>` : ''}${meta ? `<p class="sub">${esc(meta)}</p>` : ''}<p class="gattr">Google Maps</p></div>`;
+}
+
+// ficha do lugar: amigos que já foram
+async function friendsAtBox(p) {
+  if (!syncUser) return;
+  const list = await friendsAt(p.id).catch(() => []);
+  const box = dlg.open && dlg.querySelector(`.fat[data-id="${CSS.escape(p.id)}"]`); if (!box || !list.length) return;
+  box.innerHTML = `<div class="box"><h3>Amigos que foram · ${list.length}</h3><div class="fat-list">${list.sort((a, b) => b.nota - a.nota).map(u => `<button data-friend="${u.user_id}">${uAvatar({ ...u, id: u.user_id })}<span>${esc(u.first_name || '@' + u.username)}</span>${pts(u.nota)}</button>`).join('')}</div></div>`;
+}
+
+// --- LGPD: falar com a Lia, baixar os dados, excluir a conta ---
+function contactSheet() {
+  sheet(`<h2>Fale com a Lia</h2><p class="sub">Dúvidas, sugestões, pedidos sobre seus dados ou reclamações. Respondemos pelo seu e-mail da conta.</p>
+    <label class="lbl" for="cmsg">Mensagem</label><textarea id="cmsg" rows="5" maxlength="500" placeholder="Escreva aqui"></textarea>
+    <button class="btn primary wide" data-a="send">Enviar</button>`, async e => {
+    const b = e.target.closest('[data-a="send"]'); if (!b) return;
+    const msg = dlg.querySelector('#cmsg').value.trim(); if (!msg) return dlg.querySelector('#cmsg').focus();
+    b.disabled = true; b.innerHTML = '<span class="spin" aria-label="Enviando"></span>';
+    try { await sendReport({ place_id: 'contato', place_name: 'Fale com a Lia', kind: 'Mensagem', note: msg }); dlg.close(); toast('Mensagem enviada'); }
+    catch (err) { b.disabled = false; b.textContent = 'Enviar'; alertMsg(errorText(err)); }
+  });
+}
+function exportData() {   // portabilidade: tudo o que a Lia guarda de você, num arquivo
+  const out = { exportado_em: new Date().toISOString(), perfil: profile, dados: db };
+  const file = new File([JSON.stringify(out, null, 2)], `lia-meus-dados-${dayValue(Date.now())}.json`, { type: 'application/json' });
+  if (navigator.canShare?.({ files: [file] })) navigator.share({ files: [file], title: 'Meus dados da Lia' }).catch(() => {});
+  else { const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }
+}
+function deleteAccountSheet() {
+  sheet(`<h2>Excluir minha conta</h2>
+    <p class="sub" style="margin-top:8px">Isso apaga <b>de vez</b> a sua conta, o seu ranking, as visitas, as fotos, as listas, os favoritos e as idas marcadas. Não dá para desfazer.</p>
+    <p class="sub" style="margin-top:8px">Se quiser guardar uma cópia antes, use "Baixar meus dados".</p>
+    <label class="lbl" for="delc">Para confirmar, escreva <b>EXCLUIR</b></label><input class="input" id="delc" autocomplete="off" autocapitalize="characters">
+    <button class="btn primary wide danger-fill" data-a="del" disabled>Excluir minha conta</button>`, async e => {
+    const b = e.target.closest('[data-a="del"]'); if (!b || b.disabled) return;
+    b.disabled = true; b.innerHTML = '<span class="spin" aria-label="Excluindo"></span>';
+    try {
+      clearTimeout(pushTimer); syncUser = null;
+      await deleteAccount();
+      db = freshDb(); save('pinhao:v1', db); syncMeta = { userId: null, syncedAt: null, dirty: false }; saveMeta();
+      try { localStorage.removeItem('lia:install-dismissed'); } catch {}
+      dlg.close(); $('#me').hidden = true; profile = null; render(); toast('Conta excluída');
+      startOnboarding({ onDone: showAccount });
+    } catch (err) { b.disabled = false; b.textContent = 'Excluir minha conta'; alertMsg(errorText(err)); }
+  });
+  dlg.oninput = e => { if (e.target.id === 'delc') dlg.querySelector('[data-a="del"]').disabled = e.target.value.trim().toUpperCase() !== 'EXCLUIR'; };
+}
+
+async function privChange(e) {
+  const k = e.target.dataset.priv; if (!k) return;
+  const next = { ...privacy(), [k]: e.target.value }, before = profile.privacy;
+  profile.privacy = next;
+  try { await setPrivacy(next); toast('Privacidade salva'); } catch (err) { profile.privacy = before; e.target.value = privacy()[k]; alertMsg(errorText(err)); }
+}
+
+function favPicker() {
+  const sc = allScores(), list = [...db.ranked].sort((a, b) => b.value - a.value);
+  const draw = () => sheet(`<h2>Seus 4 favoritos</h2><p class="sub">${db.favs.length} de 4 escolhidos</p>
+    <div class="lists">${list.map(r => `<button class="lrow" data-fav="${r.id}" aria-pressed="${db.favs.includes(r.id)}"><span class="chk">${icon('check')}</span><span class="t"><b>${esc(r.name)}</b><small>${meta(r)}</small></span>${pts(sc[r.id])}</button>`).join('')}</div>
+    <button class="btn primary wide" data-a="done">Pronto</button>`, e => {
+    const f = e.target.closest('[data-fav]');
+    if (f) { const id = f.dataset.fav; db.favs = db.favs.includes(id) ? db.favs.filter(x => x !== id) : db.favs.length < 4 ? [...db.favs, id] : db.favs; persist(); return draw(); }
+    if (e.target.closest('[data-a="done"]')) profileSheet();
+  });
+  draw();
+}
+
+// --- cartão para os Stories do Instagram (1080×1920) ---
+async function shareStory(r, btn) {
+  btn.disabled = true;
+  try {
+    await Promise.all(['500 120px "EB Garamond"', '600 160px Caveat', '400 40px Jost'].map(f => document.fonts.load(f)));
+    const c = document.createElement('canvas'); c.width = 1080; c.height = 1920; const x = c.getContext('2d');
+    const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+    x.fillStyle = '#F6EEDF'; x.fillRect(0, 0, 1080, 1920);
+    const path = visits(r).flatMap(v => v.photos || []).at(-1);
+    if (path && configured) {   // foto da visita mais recente no topo, recortada para caber
+      try { const url = (await photoUrls([path]))[path]; const bmp = await createImageBitmap(await (await fetch(url)).blob());
+        const W = 960, H = 900, k = Math.max(W / bmp.width, H / bmp.height), sw = W / k, sh = H / k;
+        x.save(); x.beginPath(); x.roundRect(60, 120, W, H, 40); x.clip(); x.drawImage(bmp, (bmp.width - sw) / 2, (bmp.height - sh) / 2, sw, sh, 60, 120, W, H); x.restore(); } catch {}
+    }
+    const n = scores(rankedIn(r.cat))[r.id], f = full(r), top = path ? 1110 : 640;   // sem foto, o texto fica no meio
+    x.fillStyle = '#2E2A24'; x.font = '500 88px "EB Garamond"';
+    const words = f.name.split(' '), lines = []; let line = '';
+    for (const w of words) { if (x.measureText(line + ' ' + w).width > 940 && line) { lines.push(line); line = w; } else line = line ? line + ' ' + w : w; }
+    lines.push(line); lines.slice(0, 3).forEach((l, i) => x.fillText(l, 70, top + i * 96));
+    const y = top + Math.min(3, lines.length) * 96 + 20;
+    x.fillStyle = css('--' + zone(n)) || '#2F7A4F'; x.font = '500 300px "EB Garamond"'; x.fillText(String(n), 62, y + 260);
+    x.fillStyle = '#6F665A'; x.font = '400 40px Jost';
+    x.fillText([cuisines(f.cuisine)[0], f.bairro, 'Curitiba'].filter(Boolean).join(' · '), 70, y + 340);
+    x.fillText('visitado em ' + new Date(visits(r).at(-1).date).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' }), 70, y + 396);
+    x.fillStyle = '#1F3A93'; x.font = '600 150px Caveat'; x.save(); x.translate(70, 1800); x.rotate(-4 * Math.PI / 180); x.fillText('Lia', 0, 0); x.restore();
+    x.fillStyle = '#6F665A'; x.font = '400 34px Jost'; x.textAlign = 'right'; x.fillText('meu ranking de Curitiba', 1010, 1780);
+    const blob = await new Promise(ok => c.toBlob(ok, 'image/png'));
+    const file = new File([blob], `lia-${f.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`, { type: 'image/png' });
+    if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: f.name }).catch(() => {});
+    else { const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }
+  } finally { btn.disabled = false; }
+}
+
+// Editar uma visita: data, quem foi, fotos e anotação. A nota é do lugar e muda pelo "Voltei aqui".
+const dayValue = d => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };
+const markRevisits = r => { r.visits.sort((a, b) => a.date - b.date).forEach((v, i) => { v.revisit = i > 0; }); r.date = r.visits.at(-1).date; };
+function editVisit(p, r, i) {
+  const v = r.visits[i]; v.with ||= []; v.photos ||= [];
+  pendingShots = 0; shotError = '';
+  const only = r.visits.length === 1;
+  sheet(`<h2>Editar visita</h2><p class="sub">${esc(r.name)}</p>
+    <label class="lbl" for="vdate">Data</label><input class="input" type="date" id="vdate" value="${dayValue(v.date)}" max="${dayValue(Date.now())}">
+    <span class="lbl">Quem foi com você?</span><div id="who">${whoPicker(v.with)}</div>
+    <span class="lbl">Ocasião</span>${tagPicker(v)}
+    <span class="lbl">Fotos <small class="sub">até ${MAX_PHOTOS}</small></span><div id="shots">${shotsHTML(v)}</div>
+    <input type="file" id="ph-in" accept="image/*" multiple hidden>
+    <label class="lbl" for="note">Anotação</label><textarea id="note" rows="2" placeholder="O que você pediu">${esc(v.note)}</textarea>
+    <button class="btn primary wide" data-a="save">Salvar</button>
+    <div class="actions" style="margin-top:6px"><button class="btn quiet danger" data-a="del">${only ? 'Apagar visita e tirar do ranking' : 'Apagar esta visita'}</button></div>`, e => {
+    if (whoClick(e, v)) return;
+    if (tagClick(e, v)) return;
+    if (shotsClick(e, v)) return;
+    const b = e.target.closest('[data-a]'); if (!b) return;
+    if (b.dataset.a === 'save') {
+      const d = dlg.querySelector('#vdate').value;
+      if (d) { const [y, m, dd] = d.split('-').map(Number), old = new Date(v.date); v.date = new Date(y, m - 1, dd, old.getHours(), old.getMinutes()).getTime(); }
+      v.note = dlg.querySelector('#note').value.trim();
+      markRevisits(r); persist(); notifyWith(p, v); placeSheet(p);
+    } else if (b.dataset.a === 'del') { b.textContent = only ? 'Confirmar: apagar e tirar do ranking' : 'Confirmar: apagar visita'; b.dataset.a = 'del2'; }
+    else if (b.dataset.a === 'del2') {
+      deletePhotos(v.photos).catch(() => {});   // fotos saem do servidor junto
+      if (only) { db.ranked = db.ranked.filter(x => x.id !== r.id); persist(); return dlg.close(); }
+      r.visits.splice(i, 1); markRevisits(r); persist(); placeSheet(p);
+    }
+  });
+  dlg.oninput = e => whoInput(e, v);
+  dlg.onchange = e => { if (e.target.id === 'ph-in') addPhotos(e.target, v); };
+}
+
+// Protótipo sem backend: a "comunidade" é só você. Com o servidor, `ratings` vem de todos os usuários de Curitiba.
+function communityBox(r, myScore) {
+  const all = allScores(), vals = Object.values(all), C = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 7;
+  const c = community(myScore == null ? [] : [{ user: 'eu', score: myScore, date: visits(r).at(-1).date }], C);
+  if (!c.count) return `<div class="box"><h3>Curitiba</h3><p class="sub">Ninguém avaliou ainda. Seja o primeiro.</p></div>`;
+  const max = Math.max(1, ...c.hist), mine = myScore == null ? -1 : Math.min(9, Math.floor(myScore));
+  return `<div class="box"><h3>Curitiba</h3>
+    <div class="cscore">${c.score != null ? pts(c.score) + `<span class="sub">${c.count} avaliações</span>`
+      : `<span class="sub">A nota da comunidade aparece com ${c.count + c.need} avaliações. Por enquanto: ${c.count}.</span>`}</div>
+    <div class="hist" role="img" aria-label="Distribuição das notas">${c.hist.map((n, i) => `<i class="${i === mine ? 'on' : ''}" style="height:${(n / max) * 100}%"></i>`).join('')}</div>
+    <div class="hist-x"><span>0</span><span>5</span><span>10</span></div></div>`;
+}
+const toggleWant = id => { db.want = db.want.includes(id) ? db.want.filter(i => i !== id) : [...db.want, id]; persist(); toast(db.want.includes(id) ? 'Salvo em Quero ir' : 'Tirado do Quero ir'); };
+
+const similarity = (a, b) => {
+  const ca = a.cuisine.split(';'), cb = (b.cuisine || '').split(';');
+  return ca.filter(c => c && cb.includes(c)).length + (a.bairro && a.bairro === b.bairro ? 1 : 0);
+};
+
+function rankFlow(place) {
+  const pl = planFor(place.id);
+  if (!planCtx && pl && pl.date < Date.now() + 12 * 36e5) planCtx = pl;   // "Já fui" numa ida marcada aproveita quem e quando
+  const others = rankedIn(place.cat).filter(r => r.id !== place.id);
+  const prev = db.ranked.find(r => r.id === place.id);
+  sheet(`${phead(place)}<p class="sub" style="margin-top:16px">${prev ? 'Que nota você dá desta vez?' : 'Que nota você dá?'}</p>
+    <div class="notas">${Array.from({ length: 10 }, (_, i) => i + 1).map(n => `<button class="cond z-${zone(n)}" data-nota="${n}" aria-pressed="${prev ? Math.floor(prev.value) === n : false}">${n}</button>`).join('')}</div>
+    <div class="notas-x"><span>Não gostei</span><span>Amei</span></div>
+    ${prev ? `<p class="prevnota">Da última vez você deu <b class="cond z-${zone(Math.floor(prev.value))}">${Math.floor(prev.value)}</b>. Toque de novo para repetir ou escolha outra nota.</p>` : ''}
+    ${rankQueue.length ? `<button class="btn quiet wide" data-skip>Pular este · faltam ${rankQueue.length}</button>` : ''}`, e => {
+    if (e.target.closest('[data-skip]')) return rankFlow(rankQueue.shift());
+    const n = +e.target.closest('[data-nota]')?.dataset.nota; if (!n) return;
+    const s = startSession(others.map(r => ({ ...r, similarity: similarity(place, r) })), n);
+    s.max = Math.max(1, Math.ceil(Math.log2(s.sublist.length + 1)));
+    compare(place, s, true);
+  });
+}
+
+// só aparece quando a nota empata com outro lugar seu
+function compare(place, s, enter) {
+  if (done(s)) return finish(place, s);
+  const c = current(s);
+  sheet(`<h2>Empate no ${s.nota}</h2><p class="sub">Qual você prefere? · ${Math.min(s.history.length + 1, s.max)} de até ${s.max}</p><div class="duel">
+    <button class="side" data-a="better"><b>${esc(place.name)}</b><small>${meta(place)}</small></button><span class="vs cond">×</span>
+    <button class="side${enter ? ' in' : ''}" data-a="worse"><b>${esc(c.name)}</b><small>${meta(c)}</small></button></div>
+    <div class="bar"><button class="btn quiet" data-a="undo" ${s.history.length ? '' : 'disabled'}>${icon('undo')}Desfazer</button>
+    <button class="btn quiet" data-a="skip">Pular</button><button class="btn quiet" data-a="tough">Tanto faz</button></div>`, e => {
+    const a = e.target.closest('[data-a]')?.dataset.a; if (!a) return;
+    if (a === 'undo') undo(s); else if (a === 'tough') s.sublist = []; else answer(s, a);
+    compare(place, s, a !== 'undo');
+  });
+}
+
+// --- fotos: até 5 por visita, reduzidas no aparelho e guardadas na sua conta (privadas) ---
+const MAX_PHOTOS = 5;
+let pendingShots = 0, shotError = '';
+async function hydratePhotos(root) {   // troca os caminhos guardados por links temporários do Supabase
+  const imgs = [...root.querySelectorAll('img[data-path]:not([src])')];
+  if (!imgs.length || !configured) return;
+  try { const urls = await photoUrls([...new Set(imgs.map(i => i.dataset.path))]); imgs.forEach(i => { if (urls[i.dataset.path]) i.src = urls[i.dataset.path]; }); } catch {}
+}
+function shotsHTML(visit) {
+  const n = visit.photos.length + pendingShots;
+  return `<div class="shots">${visit.photos.map(p => `<div class="shot"><img data-path="${esc(p)}" alt=""><button class="shot-x" data-rmphoto="${esc(p)}" aria-label="Tirar foto">${icon('x')}</button></div>`).join('')}
+    ${Array.from({ length: pendingShots }, () => '<div class="shot loading"><span class="spin dark"></span></div>').join('')}
+    ${n < MAX_PHOTOS ? `<button class="shot add" data-addphoto>${icon('plus')}<span>Fotos</span></button>` : ''}</div>
+    ${shotError ? `<p class="onb-err" role="alert">${esc(shotError)}</p>` : ''}`;
+}
+const redrawShots = visit => { const el = dlg.querySelector('#shots'); if (el) { el.innerHTML = shotsHTML(visit); hydratePhotos(el); } };
+function shotsClick(e, visit) {
+  const b = e.target.closest('[data-addphoto],[data-rmphoto]'); if (!b) return false;
+  if (b.hasAttribute('data-addphoto')) { shotError = ''; dlg.querySelector('#ph-in').click(); }
+  else {
+    const path = b.dataset.rmphoto; b.disabled = true;
+    deletePhotos([path]).then(() => { visit.photos = visit.photos.filter(x => x !== path); persist(); shotError = ''; })
+      .catch(err => { shotError = errorText(err); }).finally(() => redrawShots(visit));
+  }
+  return true;
+}
+async function addPhotos(input, visit) {
+  const files = [...input.files].slice(0, MAX_PHOTOS - visit.photos.length - pendingShots); input.value = '';
+  if (!files.length) return;
+  pendingShots += files.length; shotError = ''; redrawShots(visit);
+  await Promise.all(files.map(async f => {
+    try { visit.photos.push(await uploadPhoto(f)); persist(); }
+    catch (err) { shotError = errorText(err); }
+    finally { pendingShots--; redrawShots(visit); }
+  }));
+}
+function galleryHTML(r) {
+  const all = visits(r).flatMap(v => v.photos || []).reverse();   // mais recentes primeiro
+  if (!all.length) return '';
+  // no máximo 3 quadros, com arranjo próprio para 1, 2 e 3; o resto vira "+N" no último e abre na tela cheia
+  const shown = all.slice(0, 3), extra = all.length - shown.length;
+  return `<div class="gallery n${shown.length}">${shown.map((p, i) => `<button data-a="view" data-view="${i}" class="g" aria-label="Abrir foto ${i + 1} de ${all.length}"><img data-path="${esc(p)}" alt="">${extra && i === shown.length - 1 ? `<span class="gmore">+${extra}</span>` : ''}</button>`).join('')}</div>`;
+}
+// tela cheia: toque nas laterais (ou arraste) para passar, X para fechar
+const viewer = $('#viewer');
+function openViewer(paths, i) {
+  const show = () => {
+    viewer.innerHTML = `<img data-path="${esc(paths[i])}" alt="Foto ${i + 1} de ${paths.length}"><span class="vcount">${i + 1} / ${paths.length}</span>
+      <button class="iconbtn vx" data-vclose aria-label="Fechar">${icon('x')}</button>
+      ${i > 0 ? `<button class="vnav prev" data-vgo="-1" aria-label="Anterior"></button>` : ''}${i < paths.length - 1 ? `<button class="vnav next" data-vgo="1" aria-label="Próxima"></button>` : ''}`;
+    hydratePhotos(viewer);
+  };
+  viewer.onclick = e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.vclose != null) viewer.close(); else { i += +b.dataset.vgo; show(); } };
+  let x0 = null;
+  viewer.ontouchstart = e => { x0 = e.touches[0].clientX; };
+  viewer.ontouchend = e => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(dx) > 50) { const j = i + (dx < 0 ? 1 : -1); if (j >= 0 && j < paths.length) { i = j; show(); } } };
+  show(); viewer.showModal();
+}
+
+// --- pessoas: amigos com conta na Lia ou "personagens" criados por você (ficam neste celular por enquanto) ---
+const PCOLORS = ['#1F3A93', '#C8553D', '#2F7A4F', '#B07A1E', '#6B4E9B', '#2E6F7E'];
+const hashStr = t => [...t].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+const person = id => db.people.find(p => p.id === id);
+const avatar = p => `<i class="pp${p.userId ? ' lia' : ''}" style="background:${PCOLORS[hashStr(p.name) % PCOLORS.length]}">${esc(p.name.trim()[0]?.toUpperCase() || '?')}</i>`;
+const withText = ids => { const names = (ids || []).map(person).filter(Boolean).map(p => p.name.split(' ')[0]);
+  return names.length ? 'com ' + (names.length > 1 ? names.slice(0, -1).join(', ') + ' e ' + names.at(-1) : names[0]) : ''; };
+function whoPicker(sel) {
+  const ppl = [...db.people].sort((a, b) => (b.used || 0) - (a.used || 0));
+  return `<div class="people">${ppl.map(p => `<button class="chip-p" data-person="${p.id}" aria-pressed="${sel.includes(p.id)}">${avatar(p)}${esc(p.name.split(' ')[0])}${p.userId ? '<small>Lia</small>' : ''}</button>`).join('')}
+    <button class="chip-p add" data-person-add>${icon('plus')}Pessoa</button></div>
+    <div class="padd" hidden><input class="input" id="pq" placeholder="Nome ou @usuário de quem tem Lia" autocomplete="off"><div id="psug"></div></div>`;
+}
+function addPerson(visit, p) {
+  const ex = db.people.find(x => (p.userId && x.userId === p.userId) || (!p.userId && !x.userId && x.name.toLowerCase() === p.name.toLowerCase()));
+  const it = ex || { id: 'p' + Date.now().toString(36), ...p };
+  if (!ex) db.people.push(it);
+  if (!visit.with.includes(it.id)) visit.with.push(it.id);
+  it.used = Date.now(); persist();
+  $('#who').innerHTML = whoPicker(visit.with);
+}
+function whoClick(e, visit) {
+  const b = e.target.closest('[data-person],[data-person-add],[data-lia],[data-newp]'); if (!b) return false;
+  if (b.dataset.person) { const id = b.dataset.person; visit.with = visit.with.includes(id) ? visit.with.filter(x => x !== id) : [...visit.with, id]; b.setAttribute('aria-pressed', visit.with.includes(id)); persist(); }
+  else if (b.hasAttribute('data-person-add')) { const box = dlg.querySelector('.padd'); box.hidden = false; box.querySelector('input').focus(); }
+  else if (b.dataset.lia) { const u = JSON.parse(b.dataset.lia); addPerson(visit, { name: [u.first_name, u.last_name].filter(Boolean).join(' '), userId: u.id, username: u.username }); }
+  else if (b.dataset.newp) addPerson(visit, { name: b.dataset.newp });
+  return true;
+}
+let whoTimer;
+function whoInput(e, visit) {
+  if (e.target.id !== 'pq') return;
+  const q = e.target.value.trim(), box = dlg.querySelector('#psug');
+  const make = q && !q.startsWith('@') ? `<button class="sug" data-newp="${esc(q)}">${avatar({ name: q })}<span>Criar personagem “${esc(q)}”</span></button>` : '';
+  box.innerHTML = make;
+  clearTimeout(whoTimer);
+  if (q.replace('@', '').length < 2 || !configured) return;
+  whoTimer = setTimeout(async () => {   // procura quem tem conta na Lia pelo @ ou pelo nome
+    const found = await searchProfiles(q).catch(() => []);
+    if (e.target.value.trim() !== q) return;
+    box.innerHTML = found.map(u => `<button class="sug" data-lia="${esc(JSON.stringify(u))}">${avatar({ name: u.first_name, userId: u.id })}<span>${esc([u.first_name, u.last_name].join(' '))}<small>@${esc(u.username)} · tem Lia</small></span></button>`).join('') + make;
+  }, 300);
+}
+
+function finish(place, s) {
+  pendingShots = 0; shotError = '';
+  const prev = db.ranked.find(r => r.id === place.id);
+  db.ranked = db.ranked.filter(r => r.id !== place.id);
+  const ctx = planCtx?.placeId === place.id ? planCtx : null; planCtx = null;
+  const visit = { date: ctx ? Math.min(ctx.date, Date.now()) : Date.now(), note: '', revisit: !!prev, with: ctx ? [...ctx.with] : [], photos: [], tags: [] };
+  if (ctx) { db.plans = db.plans.filter(x => x.id !== ctx.id); }
+  const entry = { id: place.id, name: place.name, cat: place.cat, cuisine: place.cuisine, bairro: place.bairro, lat: place.lat, lon: place.lon,
+    value: finalValue(s), loved: !!prev?.loved, visits: [...(prev ? visits(prev) : []), visit], date: visit.date };
+  visit.nota = Math.floor(entry.value);   // cada visita guarda a nota daquele dia; a do lugar é sempre a da última
+  db.ranked.push(entry); db.want = db.want.filter(id => id !== place.id); persist();
+  const mine = rankedIn(place.cat), sc = scores(mine)[place.id];
+  tab = 'tabela'; cat = place.cat; justRanked = place.id;
+  sheet(`<div class="result"><h2>${esc(place.name)}</h2>${pts(sc)}
+    <p>${mine.findIndex(x => x.id === place.id) + 1}º de ${mine.length} em ${CATS[place.cat].toLowerCase()}</p></div>
+    <button class="btn secondary wide heart" data-love aria-pressed="${entry.loved}">${icon('heart', entry.loved)}Amei, voltaria sempre</button>
+    <span class="lbl">Quem foi com você?</span><div id="who">${whoPicker(visit.with)}</div>
+    <span class="lbl">Ocasião</span>${tagPicker(visit)}
+    <span class="lbl">Fotos <small class="sub">até ${MAX_PHOTOS}</small></span><div id="shots">${shotsHTML(visit)}</div>
+    <input type="file" id="ph-in" accept="image/*" multiple hidden>
+    <label class="lbl" for="note">Anotação desta visita</label><textarea id="note" rows="2" placeholder="O que você pediu"></textarea>
+    <button class="btn primary wide" data-ok>${rankQueue.length ? `Próximo lugar · faltam ${rankQueue.length}` : 'Ver no ranking'}</button>`, e => {
+    const lv = e.target.closest('[data-love]');
+    if (lv) { entry.loved = !entry.loved; persist(); lv.setAttribute('aria-pressed', entry.loved); lv.innerHTML = icon('heart', entry.loved) + 'Amei, voltaria sempre'; return; }
+    if (whoClick(e, visit)) return;
+    if (tagClick(e, visit)) return;
+    if (shotsClick(e, visit)) return;
+    if (!e.target.closest('[data-ok]')) return;
+    visit.note = dlg.querySelector('#note').value.trim(); persist(); justRanked = place.id; notifyWith(place, visit);
+    if (rankQueue.length) rankFlow(rankQueue.shift()); else dlg.close();
+  });
+  dlg.oninput = e => whoInput(e, visit);
+  dlg.onchange = e => { if (e.target.id === 'ph-in') addPhotos(e.target, visit); };
+}
+
+// começo guiado: marcar de uma vez os lugares conhecidos e ranquear um atrás do outro
+function quickStart() {
+  if (!places) return toast('Carregando os lugares…');
+  const picked = new Map(), ranked = new Set(db.ranked.map(r => r.id));
+  const pool = allPlaces().filter(p => !ranked.has(p.id));
+  const CHAINS = /^(subway|mc ?donald|burger king|bob'?s|habib'?s|giraffas|starbucks|kfc|pizza hut|domino'?s|spoleto|china in box|outback|madero|jeronimo|coco bambu|cacau show|kopenhagen)/i;
+  // sem dados de popularidade: quem tem site ou Instagram costuma ser mais conhecido; redes grandes ficam só na busca; a aba aberta vem primeiro
+  const known = pool.filter(p => (p.insta || p.site) && !CHAINS.test(norm(p.name))).sort((a, b) => (b.cat === cat) - (a.cat === cat));
+  const list = q => {
+    const nq = norm(q.trim());
+    const hits = nq ? pool.filter(p => norm(`${p.name} ${p.cuisine || ''} ${p.bairro || ''}`).includes(nq)) : known;
+    const rows = [...picked.values(), ...hits.filter(p => !picked.has(p.id))].slice(0, 40);
+    return rows.length ? rows.map(p => `<li><button class="row qs" data-pick="${p.id}" aria-pressed="${picked.has(p.id)}">
+      <span class="qs-box">${icon('check')}</span>${rowBody(p, esc([CATS[p.cat], cuisines(p.cuisine).join(', '), p.bairro].filter(Boolean).join(' · ')))}</button></li>`).join('') : '<p class="sub" style="padding:12px 0">Nada com esse nome.</p>';
+  };
+  const btn = () => picked.size ? `Ranquear ${picked.size} ${picked.size === 1 ? 'lugar' : 'lugares'}` : 'Marque pelo menos um';
+  sheet(`<h2>Onde você já foi?</h2><p class="sub">Marque os lugares de Curitiba que você conhece. Depois você dá a nota de cada um, rapidinho.</p>
+    <label class="field qs-field">${icon('search')}<input id="qsq" type="search" autocomplete="off" placeholder="Buscar pelo nome, culinária ou bairro"></label>
+    <ol class="table qs-list" id="qsl">${list('')}</ol>
+    <div class="qs-foot"><button class="btn primary wide" data-go disabled>${btn()}</button></div>`, e => {
+    const b = e.target.closest('[data-pick]');
+    if (b) {
+      const p = pool.find(x => x.id === b.dataset.pick);
+      picked.has(p.id) ? picked.delete(p.id) : picked.set(p.id, p);
+      b.setAttribute('aria-pressed', picked.has(p.id));
+      const go = dlg.querySelector('[data-go]'); go.disabled = !picked.size; go.textContent = btn();
+      return;
+    }
+    if (!e.target.closest('[data-go]') || !picked.size) return;
+    rankQueue = [...picked.values()]; rankFlow(rankQueue.shift());
+  });
+  dlg.oninput = e => { if (e.target.id === 'qsq') dlg.querySelector('#qsl').innerHTML = list(e.target.value); };
+}
+
+function addPlace() {
+  sheet(`<h2>Adicionar lugar</h2>
+    <label class="lbl" for="n">Nome</label><input class="input" id="n" value="${esc(query.trim())}" autocomplete="off">
+    <label class="lbl" for="b">Bairro</label><input class="input" id="b" autocomplete="off">
+    <label class="lbl" for="c">Culinária</label><input class="input" id="c" placeholder="italiana, japonesa…" autocomplete="off">
+    <label class="lbl" for="k">Tipo</label><select class="input" id="k">${Object.entries(CATS).map(([k, v]) => `<option value="${k}" ${k === cat ? 'selected' : ''}>${v}</option>`).join('')}</select>
+    <button class="btn primary wide" data-ok>Continuar</button>`, e => {
+    if (!e.target.closest('[data-ok]')) return;
+    const name = dlg.querySelector('#n').value.trim(); if (!name) return dlg.querySelector('#n').focus();
+    const p = { id: 'u' + Date.now(), name, bairro: dlg.querySelector('#b').value.trim(),
+      cuisine: dlg.querySelector('#c').value.trim().toLowerCase().replace(/\s+/g, '_'), cat: dlg.querySelector('#k').value };
+    db.custom.push(p); persist(); rankFlow(p);
+  });
+}
+
+// --- eventos ---
+document.addEventListener('click', e => {
+  if (dlg.contains(e.target)) return;
+  if (e.target.closest('[data-a="quick"]')) return quickStart();
+  const d = e.target.closest('button')?.dataset; if (!d) return;
+  if (d.dmode) { diaryMode = d.dmode; if (d.dmode === 'friends') { feed = null; loadSocial().then(() => { if (tab === 'atividade' && diaryMode === 'friends') render(); }); } return render(); }
+  if (d.friend) return friendSheet(d.friend);
+  if (d.a2 === 'findfriends') return friendSearch();
+  if (d.mention) { const p = byId(d.mention); if (!p) return; return db.ranked.some(r => r.id === p.id) ? placeSheet(p) : rankFlow(p); }
+  if (d.fplace) { const p = byId(d.fplace) || JSON.parse(d.fdata); return placeSheet(p); }
+  if (d.tab) { tab = d.tab; render(); if (tab === 'buscar' && matchMedia('(pointer:fine)').matches) $('#q').focus(); }
+  else if (d.cat) { cat = d.cat; render(); }
+  else if (d.q) { query = d.q; render(); }
+  else if (d.pick) { const p = byId(d.pick); db.ranked.some(r => r.id === p.id) ? placeSheet(p) : rankFlow(p); }
+  else if (d.rank) rankFlow(byId(d.rank));
+  else if (d.open) placeSheet(byId(d.open));
+  else if (d.want) { toggleWant(d.want); if ($('#results')) $('#results').innerHTML = results(); if ($('#qres')) $('#qres').innerHTML = queroList(); }
+  else if (d.act === 'add') addPlace();
+  else if (d.act === 'retry') { loadError = ''; render(); fetchPlaces(); }
+  else if (d.qf === 'open') { queroOpen = !queroOpen; render(); }
+  else if (d.qf === 'near') { nearOn ? (nearOn = false, render()) : locate().then(() => { nearOn = true; render(); }).catch(() => alertMsg('Não deu para pegar sua localização. Libere a permissão no navegador.')); }
+  else if (d.browse) {
+    if (d.browse === 'off') { browse = null; return render(); }
+    const go = () => { browse = d.browse; $('#results').innerHTML = results(); };
+    d.browse === 'near' ? locate().then(() => { nearOn = true; go(); }).catch(() => alertMsg('Não deu para pegar sua localização. Libere a permissão no navegador.')) : go();
+  }
+  else if (d.plan) planSheet(byId(d.plan));
+  else if (d.calnav) { const base = calMonth || new Date(new Date().getFullYear(), new Date().getMonth(), 1); calMonth = new Date(base.getFullYear(), base.getMonth() + +d.calnav, 1); calDay = null; render(); }
+  else if (d.calday) { calDay = calDay === d.calday ? null : d.calday; render(); }
+  else if (d.calclear != null) { calDay = null; render(); }
+});
+$('#view').addEventListener('input', e => { if (e.target.id === 'qq') { queroQuery = e.target.value; $('#qres').innerHTML = queroList(); return; }
+  if (e.target.id === 'q') { query = e.target.value; browse = null; $('#results').innerHTML = results(); } });
+
+render();
+fetchPlaces();
+
+// --- conta: sem sessão, abre o cadastro; com sessão, mostra a inicial no topo ---
+let profile = null;
+// --- sincronização com a conta ---
+async function pushData() {
+  if (!syncUser || syncState === 'saving') return;
+  syncState = 'saving'; syncStatus();
+  try { syncMeta.syncedAt = await saveUserData(db); syncMeta.dirty = false; saveMeta(); syncState = 'ok'; }
+  catch { syncState = 'offline'; }   // fica marcado como pendente; tenta de novo na próxima mudança, ao voltar a internet ou ao abrir
+  syncStatus();
+}
+// Ao entrar (e ao voltar para o app): traz da conta, junta se os dois lados mudaram, e envia o que faltar.
+async function pullData() {
+  if (!syncUser) return;
+  let remote;
+  try { remote = await loadUserData(); } catch { syncState = 'offline'; return syncStatus(); }
+  if (!remote) return pushData();                                   // conta vazia: primeiro envio deste aparelho
+  if (remote.updated_at === syncMeta.syncedAt) return syncMeta.dirty ? pushData() : (syncState = 'ok', syncStatus());
+  const merged = syncMeta.dirty;                                    // mudou aqui e lá: junta sem perder nada
+  db = fixDb(merged ? mergeData(db, remote.data) : remote.data);
+  save('pinhao:v1', db);
+  syncMeta.syncedAt = remote.updated_at; syncMeta.dirty = merged; saveMeta();
+  if (!dlg.open) render();
+  merged ? pushData() : (syncState = 'ok', syncStatus());
+}
+async function startSync(userId) {
+  if (syncMeta.userId && syncMeta.userId !== userId) {             // outra conta entrou neste aparelho
+    save('pinhao:backup-' + syncMeta.userId, db);                    // guarda o que era da conta anterior, por segurança
+    db = freshDb(); save('pinhao:v1', db);
+    syncMeta = { userId, syncedAt: null, dirty: false };
+  }
+  syncMeta.userId = userId; saveMeta(); syncUser = userId;
+  await pullData();
+}
+async function stopSync() {   // ao sair: envia o que faltar e limpa este aparelho
+  try { const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription(); if (sub) { await deletePushSub(sub.endpoint).catch(() => {}); await sub.unsubscribe(); } } catch {}   // avisos desta conta não chegam mais aqui
+  clearTimeout(pushTimer); social = { followers: [], following: [], requests: [] }; mentions = []; feed = null; diaryMode = 'me';
+  $('#me').classList.remove('dot'); document.querySelector('nav [data-tab="atividade"]')?.classList.remove('dot');
+  if (syncMeta.dirty) await pushData();
+  syncUser = null; db = freshDb(); save('pinhao:v1', db);
+  syncMeta = { userId: null, syncedAt: null, dirty: false }; saveMeta(); render();
+}
+const SYNC_TEXT = { saving: 'Salvando na conta…', ok: 'Tudo salvo na sua conta', offline: 'Sem conexão: salvo no celular, vai para a conta quando a internet voltar' };
+function syncStatus() { const el = dlg.querySelector('.syncline'); if (el) { el.textContent = SYNC_TEXT[syncState] || ''; el.dataset.s = syncState; } }
+window.addEventListener('online', () => { if (syncMeta.dirty) pushData(); });
+
+async function showAccount(o) {
+  if (o?.fresh && !db.ranked.length) { const wait = setInterval(() => { if (places) { clearInterval(wait); quickStart(); } }, 200); }
+  try { profile = await myProfile(); } catch { profile = null; }   // offline: segue sem o nome
+  const me = $('#me'); me.hidden = false;
+  me.textContent = (profile?.first_name || '?').trim()[0].toUpperCase();
+  const uid = (await currentUser().catch(() => null))?.id; if (uid) { await startSync(uid); loadSocial(); pushState(); }
+  if (openFromLink(location.href)) history.replaceState(null, '', location.pathname);
+}
+async function initAccount() {
+  if (!configured) return;   // sem servidor configurado, o app segue só local (desenvolvimento)
+  onPasswordRecovery(() => startOnboarding({ mode: 'recovery', onDone: showAccount }));
+  const user = await currentUser().catch(() => 'offline');
+  if (user === 'offline') return;   // sem internet e sem a biblioteca guardada: deixa usar o app, pede a conta na próxima
+  if (user) showAccount(); else startOnboarding({ onDone: showAccount });
+}
+initAccount();
+$('#me').addEventListener('click', profileSheet);
+
+// --- PWA: service worker (atualiza sozinho) e convite para instalar ---
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+// A página sabe a própria versão (BUILD é carimbado pelo publicar.sh) e compara com a publicada (version.json).
+// Se estiver atrás, recarrega: ao abrir, ao voltar para a tela e a cada 30 min, desde que nenhuma ficha esteja aberta.
+const BUILD = '20261123022027';
+const publishedVersion = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j?.v ?? null).catch(() => null);
+async function checkUpdate() {
+  const v = await publishedVersion();
+  if (!v || BUILD === 'dev' || v <= BUILD) return;
+  // trava contra repetição: se já recarregou para esta versão e continua velha, espera a próxima abertura
+  try { if (sessionStorage.getItem('lia:reloaded-for') === v) return; sessionStorage.setItem('lia:reloaded-for', v); } catch {}
+  if (dlg.open) { dlg.addEventListener('close', () => location.reload(), { once: true }); return; }
+  location.reload();
+}
+checkUpdate();
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') { checkUpdate(); plansChecked = false; setTimeout(checkPlans, 800); if (!dlg.open) pullData(); }
+  else if (syncMeta.dirty) { clearTimeout(pushTimer); pushData(); }   // saindo do app: envia na hora o que estiver pendente
+});
+setInterval(checkUpdate, 30 * 60 * 1000);
+const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+const dismissed = () => load('lia:install-dismissed', 0) > Date.now() - 14 * 864e5;
+function installBanner(html, onYes) {
+  if (standalone || dismissed() || $('#install')) return;
+  const b = document.createElement('div'); b.id = 'install'; b.innerHTML = html + `<button class="iconbtn" data-x aria-label="Agora não">${icon('x')}</button>`;
+  b.onclick = e => { if (e.target.closest('[data-x]')) { save('lia:install-dismissed', Date.now()); b.remove(); } else if (e.target.closest('[data-yes]')) onYes(b); };
+  document.body.append(b);
+}
+// Android/Chrome: o navegador oferece o prompt nativo
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  installBanner(`<span class="t"><b>Instale a Lia</b><small>Abre como app, direto da tela inicial</small></span><button class="pill" data-yes>Instalar</button>`,
+    async b => { e.prompt(); await e.userChoice; b.remove(); });
+});
+// iPhone/iPad: Safari não tem prompt, então explicamos o caminho
+if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !standalone)
+  setTimeout(() => installBanner(`<span class="t"><b>Instale a Lia no iPhone</b><small>Toque em ${'<svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px;vertical-align:-3px"><path d="M12 3v12M8 7l4-4 4 4M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>'} Compartilhar e depois em “Adicionar à Tela de Início”</small></span>`), 2500);
+</script>
+</body>
+</html>

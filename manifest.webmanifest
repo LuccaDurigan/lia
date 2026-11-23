@@ -4,7 +4,7 @@
   "description": "Seu ranking de restaurantes, cafés e bares de Curitiba",
   "lang": "pt-BR",
   "id": "./",
-  "start_url": "./",
+  "start_url": "app.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",

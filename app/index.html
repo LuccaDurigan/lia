@@ -87,7 +87,7 @@ footer a{color:var(--ink-2)}
     <p class="ok">Procure o ícone azul na sua tela inicial.</p>
   </section>
 
-  <a class="btn ghost" href="../">Usar no navegador mesmo</a>
+  <a class="btn ghost" href="../app.html">Usar no navegador mesmo</a>
 
   <ul class="feats">
     <li><i>1º</i><div><b>Um ranking que é seu</b><span>Nota de 1 a 10 e, quando empata, você escolhe qual foi melhor.</span></div></li>
@@ -102,7 +102,7 @@ const ua = navigator.userAgent, $ = id => document.getElementById(id);
 const ios = !/Android/.test(ua) && (/iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 const mobile = ios || /Android|Mobi/.test(ua);
 const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-if (standalone) location.replace('../');   // já é o app: vai direto para ele
+if (standalone) location.replace('../app.html');   // já é o app: vai direto para ele
 else if (ios) {
   $('ios').hidden = false;
   if (!/Safari/.test(ua) || /CriOS|FxiOS|EdgiOS|Instagram|FBAN|FBAV/.test(ua)) $('ios-sub').textContent = 'Abra este link no Safari primeiro. Depois, são três toques:';

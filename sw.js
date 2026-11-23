@@ -1,8 +1,8 @@
 // Service worker da Lia.
 // Arquivos do próprio app: rede primeiro (sem cache HTTP), então toda versão publicada chega na próxima abertura,
 // sem reinstalar. Sem internet, usa a última cópia guardada. Bibliotecas (mapa, Supabase; URL com versão fixa): cache primeiro.
-const CACHE = 'lia-20261123020355';
-const SHELL = ['./', 'index.html', 'privacidade.html', 'termos.html', 'legal.css', 'ranking.mjs', 'hours.mjs', 'conta.mjs', 'onboarding.mjs', 'sync.mjs', 'google.mjs', 'places.json', 'manifest.webmanifest', 'fonts/eb-garamond.woff2', 'fonts/eb-garamond-italic.woff2', 'fonts/jost.woff2', 'fonts/caveat.woff2', 'icons/icon-192.png'];
+const CACHE = 'lia-20261123022027';
+const SHELL = ['./', 'index.html', 'app.html', 'privacidade.html', 'termos.html', 'legal.css', 'ranking.mjs', 'hours.mjs', 'conta.mjs', 'onboarding.mjs', 'sync.mjs', 'google.mjs', 'places.json', 'manifest.webmanifest', 'fonts/eb-garamond.woff2', 'fonts/eb-garamond-italic.woff2', 'fonts/jost.woff2', 'fonts/caveat.woff2', 'icons/icon-192.png'];
 const CDN = ['https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css'];
 
 self.addEventListener('install', e => {
@@ -22,7 +22,7 @@ self.addEventListener('fetch', e => {
     const net = code ? new Request(url.href + (url.search ? '&' : '?') + '_=' + Date.now(), { cache: 'no-store' }) : new Request(req, { cache: 'no-cache' });
     e.respondWith(fetch(net)
       .then(res => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); } return res; })
-      .catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || caches.match('index.html'))));
+      .catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || caches.match(url.pathname.endsWith('app.html') ? 'app.html' : 'index.html'))));
   } else if (url.hostname === 'cdnjs.cloudflare.com' || url.hostname === 'cdn.jsdelivr.net') {   // bibliotecas com versão fixa na URL
     e.respondWith(caches.match(req).then(r => r || fetch(req).then(res => { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); return res; })));
   }
