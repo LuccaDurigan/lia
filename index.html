@@ -26,6 +26,7 @@
   --accent:#1F3A93;--accent-deep:#172C70;--accent-tint:#E2E7F5;--heart:#C8553D;
   --win:#2F7A4F;--mid:#B07A1E;--low:#7A7266;
   --ease:cubic-bezier(.16,1,.3,1);
+  --ease-in-out:cubic-bezier(0.77,0,0.175,1);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
@@ -227,10 +228,44 @@ dialog::backdrop{background:#1d1a1788}
 .visits time{flex:none;width:72px;color:var(--ink-2)}
 .tag{flex:none;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-tint);border-radius:6px;padding:1px 6px;align-self:flex-start}
 #install{position:fixed;z-index:1500;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top));max-width:536px;margin:0 auto;display:flex;align-items:center;gap:10px;padding:10px 6px 10px 16px;background:var(--surface);border-radius:16px;box-shadow:0 10px 30px -8px #1d1a1766;animation:rise .35s var(--ease)}
-@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* abertura: a assinatura se escreve, o coração pinga, tudo dissolve no ranking (~1,5s, 1x por dia) */
+#splash{position:fixed;inset:0;z-index:3000;display:grid;place-items:center;background:var(--ground);cursor:pointer}
+#splash .w{display:flex;align-items:flex-end;gap:4px;transform:rotate(-4deg)}
+#splash .sig{font-family:Caveat,cursive;font-weight:600;font-size:108px;line-height:1;color:var(--accent);clip-path:inset(-10% 100% -10% 0)}
+#splash .h{width:22px;height:22px;margin:0 0 24px;fill:var(--heart);opacity:0;transform:translateY(-10px) scale(.9)}
+#splash.go .sig{animation:sig-write .72s var(--ease-in-out) .08s forwards}
+#splash.go .h{animation:sig-drop .26s var(--ease) .84s forwards}
+#splash.go{animation:splash-out .32s var(--ease) 1.22s forwards}
+#splash.skip{animation:splash-skip .16s var(--ease) forwards}   /* nome próprio: reusar splash-out herdaria o tempo já decorrido */
+@keyframes sig-write{to{clip-path:inset(-10% 0 -10% 0)}}
+@keyframes sig-drop{to{opacity:1;transform:none}}
+@keyframes splash-out{to{opacity:0;visibility:hidden}}
+@keyframes splash-skip{to{opacity:0;visibility:hidden}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}
+  #splash .sig{clip-path:none}#splash .h{opacity:1;transform:none}}   /* sem movimento: aparece pronta e o JS some com ela */
 </style>
 </head>
 <body>
+<div id="splash" aria-hidden="true" hidden><div class="w"><span class="sig">Lia</span><svg class="h" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-9.2-9.3A4.7 4.7 0 0 1 12 7.2a4.7 4.7 0 0 1 9.2 3.5C19.5 15.4 12 20 12 20z"/></svg></div></div>
+<script>
+// abertura só na primeira vez do dia; roda antes do app para não piscar a tela
+(() => {
+  const el = document.getElementById('splash'), today = new Date().toDateString();
+  let seen = null; try { seen = localStorage.getItem('lia:splash'); localStorage.setItem('lia:splash', today); } catch {}
+  if (seen === today) return el.remove();
+  el.hidden = false;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const done = () => el.remove();
+  const go = () => {
+    el.classList.add('go');
+    el.addEventListener('animationend', e => { if (e.target === el) done(); });
+    setTimeout(done, reduce ? 700 : 1800);   // garantia: some mesmo se a animação não rodar
+  };
+  // espera a fonte da assinatura (no máximo 400ms) para não escrever com a letra errada
+  Promise.race([document.fonts.load('600 108px Caveat'), new Promise(r => setTimeout(r, 400))]).then(go, go);
+  el.addEventListener('click', () => el.classList.add('skip'), { once: true });
+})();
+</script>
 <header class="top">
   <div class="wrap brand"><h1>Lia</h1><span id="count"></span></div>
   <div class="wrap" id="seg"></div>
