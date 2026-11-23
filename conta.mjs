@@ -23,6 +23,8 @@ export function errorText(err) {
   if (/database error saving new user|duplicate key/i.test(m)) return 'Esse @ acabou de ser escolhido por outra pessoa. Volte e tente outro.';
   if (/rate limit|too many/i.test(m)) return 'Muitas tentativas. Espere um minuto e tente de novo.';
   if (/failed to fetch|network|load failed/i.test(m)) return 'Sem conexão. Confira a internet e tente de novo.';
+  if (/sem-conta/.test(m)) return 'Entre na sua conta para guardar fotos.';
+  if (/exceeded the maximum allowed size|payload too large/i.test(m)) return 'Essa foto é grande demais.';
   return 'Algo deu errado. Tente de novo.';
 }
 
@@ -102,4 +104,45 @@ export async function onPasswordRecovery(cb) {
 export async function updatePassword(password) {
   const { error } = await (await client()).auth.updateUser({ password });
   if (error) throw error;
+}
+
+// --- fotos das visitas (bucket privado "photos"; ver supabase.sql) ---
+// Reduz no próprio aparelho antes de enviar: lado maior com até 1600px, JPEG 82% (por volta de 200 KB).
+export async function compressPhoto(file, max = 1600, quality = 0.82) {
+  const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });   // respeita a rotação da câmera
+  const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  bmp.close?.();
+  return new Promise((ok, fail) => c.toBlob(b => (b ? ok(b) : fail(new Error('não deu para ler a foto'))), 'image/jpeg', quality));
+}
+
+export async function uploadPhoto(file) {
+  const s = await client(), user = await currentUser();
+  if (!user) throw new Error('sem-conta');
+  const blob = await compressPhoto(file);
+  const path = `${user.id}/${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+  const { error } = await s.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg', cacheControl: '31536000' });
+  if (error) throw error;
+  return path;
+}
+
+// Links temporários (1 dia) para fotos privadas, guardados em memória para não pedir de novo.
+const urlCache = new Map();
+export async function photoUrls(paths) {
+  const missing = paths.filter(p => !urlCache.has(p));
+  if (missing.length) {
+    const { data, error } = await (await client()).storage.from('photos').createSignedUrls(missing, 86400);
+    if (error) throw error;
+    for (const d of data) if (d.signedUrl) urlCache.set(d.path, d.signedUrl);
+  }
+  return Object.fromEntries(paths.map(p => [p, urlCache.get(p)]));
+}
+
+export async function deletePhotos(paths) {
+  if (!paths.length) return;
+  const { error } = await (await client()).storage.from('photos').remove(paths);
+  if (error) throw error;
+  paths.forEach(p => urlCache.delete(p));
 }

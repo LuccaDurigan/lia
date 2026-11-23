@@ -222,6 +222,27 @@ dialog::backdrop{background:#1d1a1788}
 .visits li:first-child{border-top:0}
 .visits time{flex:none;width:72px;color:var(--ink-2)}
 .tag{flex:none;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-tint);border-radius:6px;padding:1px 6px;align-self:flex-start}
+/* fotos */
+.shots{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.shot{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--track)}
+.shot img{width:100%;height:100%;object-fit:cover;display:block}
+.shot.loading{display:grid;place-items:center}
+.shot.add{display:grid;place-items:center;align-content:center;gap:2px;font-size:12px;font-weight:600;color:var(--ink-2);box-shadow:inset 0 0 0 1.5px var(--line-2);background:var(--surface)}
+.shot.add svg{width:20px;height:20px}
+.shot-x{position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:#1d1a17b3;color:#fff;display:grid;place-items:center}
+.shot-x svg{width:14px;height:14px}
+.spin.dark{border-color:var(--line-2);border-top-color:var(--accent)}
+.gallery{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:92px;gap:4px;margin-top:16px;border-radius:14px;overflow:hidden;position:relative}
+.gallery .g{background:var(--track);padding:0}.gallery .g.big{grid-column:span 2;grid-row:span 2}
+.gallery img{width:100%;height:100%;object-fit:cover;display:block}
+.gmore{position:absolute;right:8px;bottom:8px;background:#1d1a17b3;color:#fff;font-size:13px;font-weight:700;border-radius:999px;padding:3px 9px}
+.rthumb{flex:none;width:44px;height:44px;border-radius:8px;object-fit:cover;background:var(--track)}
+#viewer{width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;padding:0;border:0;background:#0d0c0b;color:#fff;border-radius:0}
+#viewer::backdrop{background:#000}
+#viewer img{width:100%;height:100%;object-fit:contain}
+#viewer .vx{position:absolute;top:calc(10px + env(safe-area-inset-top));right:10px;color:#fff;background:#ffffff1f}
+#viewer .vcount{position:absolute;top:calc(20px + env(safe-area-inset-top));left:16px;font-size:14px;opacity:.8}
+#viewer .vnav{position:absolute;top:15%;bottom:15%;width:30%}#viewer .prev{left:0}#viewer .next{right:0}
 /* nota de 1 a 10 */
 .notas{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:12px}
 .notas button{display:grid;place-items:center;text-align:center;height:58px;border-radius:14px;background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--line-2);font-size:28px;color:var(--z);transition:transform .12s var(--ease)}
@@ -328,12 +349,13 @@ dialog::backdrop{background:#1d1a1788}
   <button class="plus" data-tab="buscar"><svg class="i hand" viewBox="0 0 24 24"><path d="M15.6 4.1l4.3 4.2c-3.9 3.9-7.8 7.8-11.6 11.7l-5.2 1 .9-5.3c3.9-3.8 7.7-7.7 11.6-11.6z"/><path d="M13.4 6.3l4.3 4.3"/></svg><span class="sr">Ranquear um lugar</span></button>
 </div></nav>
 <dialog id="dlg"></dialog>
+<dialog id="viewer" aria-label="Foto"></dialog>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
 <script type="module">
 import { startSession, current, done, answer, undo, finalValue, scores, community, migrateV1 } from './ranking.mjs';
 import { parseHours, hoursStatus, hoursWeek } from './hours.mjs';
-import { configured, currentUser, myProfile, signOut, onPasswordRecovery, searchProfiles } from './conta.mjs';
+import { configured, currentUser, myProfile, signOut, onPasswordRecovery, searchProfiles, uploadPhoto, photoUrls, deletePhotos, errorText } from './conta.mjs';
 import { startOnboarding } from './onboarding.mjs';
 
 const CATS = { RES: 'Restaurantes', CAF: 'Cafés e padarias', BAR: 'Bares' };
@@ -461,7 +483,7 @@ const views = {
       const d = day(r.date);
       if (d !== last) { out += `${last ? '</ol>' : ''}<h2 class="group">${d}</h2><ol class="table">`; last = d; }
       const sub = [r.visit.revisit ? 'Voltei' : 'Primeira visita', esc(withText(r.visit.with)), r.visit.note && `“${esc(r.visit.note)}”`].filter(Boolean).join(' · ');
-      out += `<li><button class="row" data-open="${r.id}">${rowBody(r, sub)}${pts(sc[r.id])}</button></li>`;
+      out += `<li><button class="row" data-open="${r.id}">${rowBody(r, sub)}${r.visit.photos?.length ? `<img class="rthumb" data-path="${esc(r.visit.photos[0])}" alt="">` : ''}${pts(sc[r.id])}</button></li>`;
     }
     return `<div class="wrap" style="padding:0 0 28px">${out}</ol></div>`;
   },
@@ -475,6 +497,7 @@ function render() {
   $('#count').textContent = db.ranked.length ? `${db.ranked.length} ${db.ranked.length === 1 ? 'lugar' : 'lugares'}` : 'Curitiba';
   const view = $('#view');
   view.className = 'v-' + tab; view.innerHTML = views[tab](); view.scrollTop = 0;
+  hydratePhotos(view);
   if (tab === 'mapa') drawMap();
   justRanked = null;
 }
@@ -561,7 +584,8 @@ function sheet(html, handler) {
   dlg.innerHTML = `<div class="sheet"><button class="iconbtn x" data-close aria-label="Fechar">${icon('x')}</button>${html}</div>`;
   if (!dlg.open) dlg.showModal();
   dlg.onclick = e => { if (e.target === dlg || e.target.closest('[data-close]')) return dlg.close(); handler(e); };
-  dlg.oninput = null;
+  dlg.oninput = null; dlg.onchange = null;
+  hydratePhotos(dlg);
 }
 dlg.addEventListener('close', render);
 const phead = p => `<div class="phead"><div><h2>${esc(p.name)}</h2><p class="sub">${meta(p)}</p></div></div>`;
@@ -615,15 +639,16 @@ function placeSheet(p) {
   if (r) {
     const mine = rankedIn(r.cat), sc = scores(mine)[r.id], vs = [...visits(r)].sort((a, b) => b.date - a.date);
     body = `<p class="sub" style="margin-top:14px">${mine.findIndex(x => x.id === r.id) + 1}º de ${mine.length} no seu ranking de ${CATS[r.cat].toLowerCase()}</p>
-      ${communityBox(r, sc)}${infoList(p)}
+      ${galleryHTML(r)}${communityBox(r, sc)}${infoList(p)}
       <div class="box"><h3>Suas visitas · ${vs.length}</h3><ol class="visits">${vs.map(v => `<li><time>${fmtDay(v.date)}</time>${v.revisit ? '<span class="tag">voltei</span>' : ''}<span>${[withText(v.with), esc(v.note)].filter(Boolean).join(' · ') || '<span style="color:var(--ink-2)">sem anotação</span>'}</span></li>`).join('')}</ol></div>
       <div class="actions"><button class="btn quiet danger" data-a="remove">Tirar do ranking</button></div>`;
   } else body = `${communityBox(p, null)}${infoList(p)}`;
   sheet(`<div class="ph"><div class="t">${placeHead(p)}</div><button class="iconbtn" data-a="share" aria-label="Compartilhar" style="margin-right:34px">${icon('share')}</button></div>${actionCells(p)}${body}`, e => {
     const b = e.target.closest('[data-a]'); if (!b) return;
     const a = b.dataset.a;
+    if (b.dataset.view != null) return openViewer(visits(r).flatMap(v => v.photos || []).reverse(), +b.dataset.view);
     if (a === 'remove') { b.textContent = 'Confirmar: tirar do ranking'; b.dataset.a = 'remove2'; }
-    else if (a === 'remove2') { db.ranked = db.ranked.filter(x => x.id !== p.id); persist(); dlg.close(); }
+    else if (a === 'remove2') { deletePhotos(visits(r).flatMap(v => v.photos || [])).catch(() => {}); db.ranked = db.ranked.filter(x => x.id !== p.id); persist(); dlg.close(); }
     else placeAction(a, p, () => placeSheet(p));
   });
 }
@@ -674,6 +699,64 @@ function compare(place, s, enter) {
   });
 }
 
+// --- fotos: até 5 por visita, reduzidas no aparelho e guardadas na sua conta (privadas) ---
+const MAX_PHOTOS = 5;
+let pendingShots = 0, shotError = '';
+async function hydratePhotos(root) {   // troca os caminhos guardados por links temporários do Supabase
+  const imgs = [...root.querySelectorAll('img[data-path]:not([src])')];
+  if (!imgs.length || !configured) return;
+  try { const urls = await photoUrls([...new Set(imgs.map(i => i.dataset.path))]); imgs.forEach(i => { if (urls[i.dataset.path]) i.src = urls[i.dataset.path]; }); } catch {}
+}
+function shotsHTML(visit) {
+  const n = visit.photos.length + pendingShots;
+  return `<div class="shots">${visit.photos.map(p => `<div class="shot"><img data-path="${esc(p)}" alt=""><button class="shot-x" data-rmphoto="${esc(p)}" aria-label="Tirar foto">${icon('x')}</button></div>`).join('')}
+    ${Array.from({ length: pendingShots }, () => '<div class="shot loading"><span class="spin dark"></span></div>').join('')}
+    ${n < MAX_PHOTOS ? `<button class="shot add" data-addphoto>${icon('plus')}<span>Fotos</span></button>` : ''}</div>
+    ${shotError ? `<p class="onb-err" role="alert">${esc(shotError)}</p>` : ''}`;
+}
+const redrawShots = visit => { const el = dlg.querySelector('#shots'); if (el) { el.innerHTML = shotsHTML(visit); hydratePhotos(el); } };
+function shotsClick(e, visit) {
+  const b = e.target.closest('[data-addphoto],[data-rmphoto]'); if (!b) return false;
+  if (b.hasAttribute('data-addphoto')) { shotError = ''; dlg.querySelector('#ph-in').click(); }
+  else {
+    const path = b.dataset.rmphoto; b.disabled = true;
+    deletePhotos([path]).then(() => { visit.photos = visit.photos.filter(x => x !== path); persist(); shotError = ''; })
+      .catch(err => { shotError = errorText(err); }).finally(() => redrawShots(visit));
+  }
+  return true;
+}
+async function addPhotos(input, visit) {
+  const files = [...input.files].slice(0, MAX_PHOTOS - visit.photos.length - pendingShots); input.value = '';
+  if (!files.length) return;
+  pendingShots += files.length; shotError = ''; redrawShots(visit);
+  await Promise.all(files.map(async f => {
+    try { visit.photos.push(await uploadPhoto(f)); persist(); }
+    catch (err) { shotError = errorText(err); }
+    finally { pendingShots--; redrawShots(visit); }
+  }));
+}
+function galleryHTML(r) {
+  const all = visits(r).flatMap(v => v.photos || []).reverse();   // mais recentes primeiro
+  if (!all.length) return '';
+  return `<div class="gallery">${all.slice(0, 6).map((p, i) => `<button data-a="view" data-view="${i}" class="g${i === 0 ? ' big' : ''}" aria-label="Abrir foto ${i + 1}"><img data-path="${esc(p)}" alt=""></button>`).join('')}
+    ${all.length > 6 ? `<span class="gmore">+${all.length - 6}</span>` : ''}</div>`;
+}
+// tela cheia: toque nas laterais (ou arraste) para passar, X para fechar
+const viewer = $('#viewer');
+function openViewer(paths, i) {
+  const show = () => {
+    viewer.innerHTML = `<img data-path="${esc(paths[i])}" alt="Foto ${i + 1} de ${paths.length}"><span class="vcount">${i + 1} / ${paths.length}</span>
+      <button class="iconbtn vx" data-vclose aria-label="Fechar">${icon('x')}</button>
+      ${i > 0 ? `<button class="vnav prev" data-vgo="-1" aria-label="Anterior"></button>` : ''}${i < paths.length - 1 ? `<button class="vnav next" data-vgo="1" aria-label="Próxima"></button>` : ''}`;
+    hydratePhotos(viewer);
+  };
+  viewer.onclick = e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.vclose != null) viewer.close(); else { i += +b.dataset.vgo; show(); } };
+  let x0 = null;
+  viewer.ontouchstart = e => { x0 = e.touches[0].clientX; };
+  viewer.ontouchend = e => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(dx) > 50) { const j = i + (dx < 0 ? 1 : -1); if (j >= 0 && j < paths.length) { i = j; show(); } } };
+  show(); viewer.showModal();
+}
+
 // --- pessoas: amigos com conta na Lia ou "personagens" criados por você (ficam neste celular por enquanto) ---
 const PCOLORS = ['#1F3A93', '#C8553D', '#2F7A4F', '#B07A1E', '#6B4E9B', '#2E6F7E'];
 const hashStr = t => [...t].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
@@ -719,9 +802,10 @@ function whoInput(e, visit) {
 }
 
 function finish(place, s) {
+  pendingShots = 0; shotError = '';
   const prev = db.ranked.find(r => r.id === place.id);
   db.ranked = db.ranked.filter(r => r.id !== place.id);
-  const visit = { date: Date.now(), note: '', revisit: !!prev, with: [] };
+  const visit = { date: Date.now(), note: '', revisit: !!prev, with: [], photos: [] };
   const entry = { id: place.id, name: place.name, cat: place.cat, cuisine: place.cuisine, bairro: place.bairro, lat: place.lat, lon: place.lon,
     value: finalValue(s), loved: !!prev?.loved, visits: [...(prev ? visits(prev) : []), visit], date: visit.date };
   db.ranked.push(entry); db.want = db.want.filter(id => id !== place.id); persist();
@@ -731,15 +815,19 @@ function finish(place, s) {
     <p>${mine.findIndex(x => x.id === place.id) + 1}º de ${mine.length} em ${CATS[place.cat].toLowerCase()}</p></div>
     <button class="btn secondary wide heart" data-love aria-pressed="${entry.loved}">${icon('heart', entry.loved)}Amei, voltaria sempre</button>
     <span class="lbl">Quem foi com você?</span><div id="who">${whoPicker(visit.with)}</div>
+    <span class="lbl">Fotos <small class="sub">até ${MAX_PHOTOS}</small></span><div id="shots">${shotsHTML(visit)}</div>
+    <input type="file" id="ph-in" accept="image/*" multiple hidden>
     <label class="lbl" for="note">Anotação desta visita</label><textarea id="note" rows="2" placeholder="O que você pediu"></textarea>
     <button class="btn primary wide" data-ok>Ver no ranking</button>`, e => {
     const lv = e.target.closest('[data-love]');
     if (lv) { entry.loved = !entry.loved; persist(); lv.setAttribute('aria-pressed', entry.loved); lv.innerHTML = icon('heart', entry.loved) + 'Amei, voltaria sempre'; return; }
     if (whoClick(e, visit)) return;
+    if (shotsClick(e, visit)) return;
     if (!e.target.closest('[data-ok]')) return;
     visit.note = dlg.querySelector('#note').value.trim(); persist(); justRanked = place.id; dlg.close();
   });
   dlg.oninput = e => whoInput(e, visit);
+  dlg.onchange = e => { if (e.target.id === 'ph-in') addPhotos(e.target, visit); };
 }
 
 function addPlace() {
