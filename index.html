@@ -928,17 +928,19 @@ $('#me').addEventListener('click', () => sheet(`<h2>${esc([profile?.first_name, 
 
 // --- PWA: service worker (atualiza sozinho) e convite para instalar ---
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
-// App instalado fica vivo em segundo plano por dias. Ao voltar para a tela (ou a cada 30 min), compara a versão publicada
-// (version.json, gerado pelo publicar.sh) com a que está aberta e recarrega se mudou, desde que nenhuma ficha esteja aberta.
-let openedVersion = null;
+// A página sabe a própria versão (BUILD é carimbado pelo publicar.sh) e compara com a publicada (version.json).
+// Se estiver atrás, recarrega: ao abrir, ao voltar para a tela e a cada 30 min, desde que nenhuma ficha esteja aberta.
+const BUILD = '20261122223655';
 const publishedVersion = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j?.v ?? null).catch(() => null);
-publishedVersion().then(v => { openedVersion = v; });
 async function checkUpdate() {
   const v = await publishedVersion();
-  if (!v || !openedVersion || v === openedVersion) return;
+  if (!v || BUILD === 'dev' || v <= BUILD) return;
+  // trava contra repetição: se já recarregou para esta versão e continua velha, espera a próxima abertura
+  try { if (sessionStorage.getItem('lia:reloaded-for') === v) return; sessionStorage.setItem('lia:reloaded-for', v); } catch {}
   if (dlg.open) { dlg.addEventListener('close', () => location.reload(), { once: true }); return; }
   location.reload();
 }
+checkUpdate();
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
 setInterval(checkUpdate, 30 * 60 * 1000);
 const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
