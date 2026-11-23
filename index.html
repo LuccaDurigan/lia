@@ -239,7 +239,8 @@ dialog::backdrop{background:#1d1a1788}
 .gstat{margin:4px 0 0;font-size:15px;color:var(--ink-2)}.gstat:empty{display:none}
 .hshare.top{position:absolute;right:0;top:0}
 .hero{display:flex;align-items:center;gap:16px;margin:18px 0 2px;padding:14px 16px;background:var(--surface);border-radius:18px}
-.hero .big{font-family:'EB Garamond',Georgia,serif;font-size:64px;line-height:.9;font-weight:500}
+.hero .big{font-family:'EB Garamond',Georgia,serif;font-size:64px;line-height:.9;font-weight:500;color:var(--z)}
+.sheet .x{z-index:2}.sheet:has(.cover:not([hidden])) .x{background:#fffbf3e6;border-radius:50%}
 .hpos{flex:1;display:grid;gap:2px}.hpos b{font-size:19px}.hpos span{color:var(--ink-2);font-size:14px}
 .cline{margin:18px 2px 0;font-size:14px;color:var(--ink-2)}.cline b{color:var(--ink)}
 .duo{display:flex;gap:8px;margin-top:16px}.duo .btn{flex:1;min-height:46px;font-size:15px}
@@ -1780,7 +1781,7 @@ $('#me').addEventListener('click', profileSheet);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // A página sabe a própria versão (BUILD é carimbado pelo publicar.sh) e compara com a publicada (version.json).
 // Se estiver atrás, recarrega: ao abrir, ao voltar para a tela e a cada 30 min, desde que nenhuma ficha esteja aberta.
-const BUILD = '20261123014637';
+const BUILD = '20261123015001';
 const publishedVersion = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j?.v ?? null).catch(() => null);
 async function checkUpdate() {
   const v = await publishedVersion();
