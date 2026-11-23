@@ -1,17 +1,13 @@
-// Ranking por comparação — reimplementação própria da mecânica observada no Beli (ver relatorio-beli.md).
-// Cada item da lista do usuário tem `value` em (0,3): (2,3) gostei, (1,2) ok, (0,1) não gostei.
+// Ranking da Lia: a pessoa dá uma nota de 1 a 10 e, se empatar com outro lugar seu, desempata comparando.
+// Cada item tem `value` em [1, 11): a parte inteira é a nota escolhida; a fração ordena os empates (maior = preferido).
 
-const BANDS = { 1: [2, 3], 0: [1, 2], [-1]: [0, 1] };   // likeCode -> [lower, upper]
-const TOP = { 1: 10, 0: 6.7, [-1]: 3.4 };               // nota máxima de cada faixa
+const sameNota = (v, nota) => Math.floor(v) === nota;
 
-const inBand = (v, code) => v > BANDS[code][0] && v < BANDS[code][1];
-
-// Inicia uma sessão de ranking para um novo restaurante.
-// ranked: [{id, value, similarity?}]; similarity maior = mais parecido (opcional).
-export function startSession(ranked, likeCode) {
-  const [lower, upper] = BANDS[likeCode];
-  const sublist = ranked.filter(r => inBand(r.value, likeCode)).sort((a, b) => b.value - a.value);
-  const s = { likeCode, lower, upper, sublist, ix: 0, history: [] };
+// Inicia o desempate de um lugar novo com a nota escolhida.
+// ranked: [{id, value, similarity?}]; similarity maior = mais parecido (opcional). Sem empates, a sessão já nasce terminada.
+export function startSession(ranked, nota) {
+  const sublist = ranked.filter(r => sameNota(r.value, nota)).sort((a, b) => b.value - a.value);
+  const s = { nota, lower: nota, upper: nota + 1, sublist, ix: 0, history: [] };
   pick(s, null);
   return s;
 }
@@ -54,14 +50,26 @@ export function undo(s) {
 // "Too tough" / fim: o novo item fica no meio do intervalo restante.
 export const finalValue = s => (s.lower + s.upper) / 2;
 
-// Nota 0–10: posição dentro da faixa, espaçada linearmente.
+// Nota exibida: a escolhida pela pessoa (1 a 10). A ordem dentro da mesma nota vem do desempate.
 export function scores(ranked) {
-  const out = {};
-  for (const code of [1, 0, -1]) {
-    const band = ranked.filter(r => inBand(r.value, code)).sort((a, b) => b.value - a.value);
-    band.forEach((r, i) => { out[r.id] = +(TOP[code] - (3.3 / band.length) * i).toFixed(1); });
+  return Object.fromEntries(ranked.map(r => [r.id, Math.floor(r.value)]));
+}
+
+// Converte o formato antigo (value em (0,3), nota pela posição na faixa gostei/ok/não gostei) para o novo,
+// mantendo a ordem: cada lugar fica com a nota antiga arredondada e os empates na mesma ordem de antes.
+export function migrateV1(ranked) {
+  const BANDS = [[2, 3, 10], [1, 2, 6.7], [0, 1, 3.4]];   // [de, até, nota do topo da faixa]
+  const old = {};
+  for (const [lo, hi, top] of BANDS) {
+    const band = ranked.filter(r => r.value > lo && r.value < hi).sort((a, b) => b.value - a.value);
+    band.forEach((r, i) => { old[r.id] = top - (3.3 / band.length) * i; });
   }
-  return out;
+  const byNota = {};
+  for (const r of [...ranked].sort((a, b) => b.value - a.value)) {
+    const n = Math.min(10, Math.max(1, Math.round(old[r.id] ?? 5)));
+    (byNota[n] ||= []).push(r);
+  }
+  return Object.entries(byNota).flatMap(([n, list]) => list.map((r, k) => ({ ...r, value: +n + (list.length - k) / (list.length + 1) })));
 }
 
 // Nota da comunidade, no estilo Letterboxd/IMDb: média bayesiana que puxa lugares com poucas notas para a média da cidade.
@@ -83,29 +91,33 @@ export function community(ratings, C, { m = COMMUNITY.m, minShow = COMMUNITY.min
 if (typeof process !== 'undefined' && process.argv[1]?.endsWith('ranking.mjs')) {
   const assert = (c, m) => { if (!c) throw new Error(m); };
   let list = [];
-  const add = (id, code, prefersOver) => {
-    const s = startSession(list, code);
-    while (!done(s)) answer(s, prefersOver(current(s).id) ? 'better' : 'worse');
-    list.push({ id, value: finalValue(s) });
+  const add = (id, nota, prefersOver) => {
+    const s = startSession(list, nota); let asked = 0;
+    while (!done(s)) { answer(s, prefersOver(current(s).id) ? 'better' : 'worse'); asked++; }
+    list.push({ id, value: finalValue(s) }); return asked;
   };
-  // ordem real de preferência: A > B > C > D > E (todos "gostei")
+  // cinco lugares com nota 9: o desempate ordena pela preferência real A > B > C > D > E
   const order = ['A', 'B', 'C', 'D', 'E'];
-  for (const id of ['C', 'A', 'E', 'B', 'D'])
-    add(id, 1, other => order.indexOf(id) < order.indexOf(other));
+  for (const id of ['C', 'A', 'E', 'B', 'D']) add(id, 9, other => order.indexOf(id) < order.indexOf(other));
+  // lugar com nota sem empate não faz nenhuma pergunta
+  assert(add('F', 7, () => true) === 0, 'sem empate não deveria comparar');
   const sorted = [...list].sort((a, b) => b.value - a.value).map(r => r.id).join('');
-  assert(sorted === 'ABCDE', 'ordem errada: ' + sorted);
+  assert(sorted === 'ABCDEF', 'ordem errada: ' + sorted);
   const sc = scores(list);
-  assert(sc.A === 10 && sc.E < sc.D && sc.E > 6.7, 'notas erradas ' + JSON.stringify(sc));
+  assert(sc.A === 9 && sc.E === 9 && sc.F === 7, 'notas erradas ' + JSON.stringify(sc));
   // undo volta ao estado anterior
-  const s = startSession(list, 1); const before = current(s).id;
+  const s = startSession(list, 9); const before = current(s).id;
   answer(s, 'better'); undo(s); assert(current(s).id === before, 'undo falhou');
+  // migração do formato antigo mantém a ordem e gera notas 1–10
+  const old = [{ id: 'x', value: 2.9 }, { id: 'y', value: 2.5 }, { id: 'z', value: 1.5 }, { id: 'w', value: 0.5 }];
+  const mig = migrateV1(old), ord = [...mig].sort((a, b) => b.value - a.value).map(r => r.id).join('');
+  assert(ord === 'xyzw' && mig.every(r => r.value >= 1 && r.value < 11), 'migração falhou ' + JSON.stringify(mig));
   // comunidade: 3 notas 10 não batem um lugar com 40 notas 8,5
   const many = (n, score, base = 0) => Array.from({ length: n }, (_, i) => ({ user: 'u' + (base + i), score, date: 1 }));
   const few = community(many(3, 10), 7, { minShow: 0 }), solid = community(many(40, 8.5), 7);
   assert(few.score < solid.score, 'bayes falhou');
   assert(community(many(3, 10), 7).score === null && community(many(3, 10), 7).need === 7, 'mínimo falhou');
-  // mesma pessoa conta uma vez, pela visita mais recente; privada não conta
   const dup = community([{ user: 'a', score: 2, date: 1 }, { user: 'a', score: 9, date: 2 }, { user: 'b', score: 5, date: 1, private: true }], 7, { minShow: 0 });
   assert(dup.count === 1 && dup.hist[9] === 1, 'deduplicação falhou');
-  console.log('ok', sorted, sc, 'comunidade', few.score.toFixed(2), '<', solid.score.toFixed(2));
+  console.log('ok', sorted, sc, 'migração', ord);
 }

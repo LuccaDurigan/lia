@@ -47,6 +47,18 @@ export async function myProfile() {
   return data;
 }
 
+// Procura quem tem Lia pelo @ ou pelo nome (só para quem está logado; não lista você mesmo).
+export async function searchProfiles(q) {
+  const s = await client(), user = await currentUser();
+  if (!user) return [];
+  const t = q.replace(/^@/, '').toLowerCase().replace(/[^\p{L}\p{N}._ ]/gu, '').trim();   // limpa o que quebraria o filtro
+  if (t.length < 2) return [];
+  const { data, error } = await s.from('profiles').select('id, username, first_name, last_name')
+    .or(`username.ilike.${t}%,first_name.ilike.${t}%`).neq('id', user.id).limit(5);
+  if (error) throw error;
+  return data;
+}
+
 export async function usernameAvailable(name) {
   const { data, error } = await (await client()).rpc('username_available', { name });
   if (error) throw error;

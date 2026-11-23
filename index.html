@@ -188,11 +188,6 @@ dialog::backdrop{background:#1d1a1788}
 .stat .pts{font-size:56px}
 .note{margin-top:10px;padding:12px 14px;background:var(--surface);border-radius:12px;color:var(--ink)}
 .actions{display:grid;gap:10px;margin-top:20px}
-.how{display:grid;gap:10px;margin-top:18px}
-.how button{display:flex;align-items:center;gap:14px;min-height:64px;padding:0 16px;border-radius:14px;background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--line-2);font-size:18px;font-weight:700}
-.how button:active{box-shadow:inset 0 0 0 2.5px var(--z)}
-.how i{width:22px;height:22px;border-radius:6px;background:var(--z)}
-.how span{margin-left:auto;font-size:14px;font-weight:500;color:var(--ink-2)}
 .duel{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin:18px 0 8px}
 .side{display:grid;justify-items:center;align-content:center;gap:6px;min-height:176px;padding:16px 10px;border-radius:16px;background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--line-2);text-align:center;transition:transform .15s var(--ease),box-shadow .15s}
 .side:active{transform:scale(.97);box-shadow:inset 0 0 0 3px var(--accent)}
@@ -227,6 +222,25 @@ dialog::backdrop{background:#1d1a1788}
 .visits li:first-child{border-top:0}
 .visits time{flex:none;width:72px;color:var(--ink-2)}
 .tag{flex:none;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-tint);border-radius:6px;padding:1px 6px;align-self:flex-start}
+/* nota de 1 a 10 */
+.notas{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:12px}
+.notas button{display:grid;place-items:center;text-align:center;height:58px;border-radius:14px;background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--line-2);font-size:28px;color:var(--z);transition:transform .12s var(--ease)}
+.notas button:active{transform:scale(.94)}
+.notas button[aria-pressed=true]{background:var(--z);color:#fff;box-shadow:none}
+.notas-x{display:flex;justify-content:space-between;font-size:13px;color:var(--ink-2);margin-top:8px}
+/* quem foi com você */
+.people{display:flex;flex-wrap:wrap;gap:8px}
+.chip-p{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 12px 0 5px;border-radius:999px;background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--line-2);font-size:15px;font-weight:550}
+.chip-p small{font-size:10px;font-weight:700;color:var(--accent);background:var(--accent-tint);border-radius:5px;padding:1px 4px}
+.chip-p[aria-pressed=true]{background:var(--ink);color:#fff;box-shadow:none}
+.chip-p.add{padding:0 14px 0 10px;color:var(--ink-2)}.chip-p.add svg{width:18px;height:18px}
+.pp{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#fff;font-style:normal;font-family:'EB Garamond',Georgia,serif;font-size:16px}
+.pp.lia{box-shadow:0 0 0 2px var(--surface),0 0 0 3.5px var(--accent)}
+.padd{margin-top:10px}.padd[hidden]{display:none}
+#psug{display:grid;gap:2px;margin-top:6px}
+.sug{display:flex;align-items:center;gap:10px;padding:8px 6px;border-radius:10px;text-align:left;font-size:15px}
+.sug:active{background:var(--track)}
+.sug small{display:block;font-size:12.5px;color:var(--ink-2)}
 /* cadastro: uma pergunta por tela */
 #onb{position:fixed;inset:0;z-index:2500;background:var(--ground);overflow-y:auto}
 .onb-screen{min-height:100%;max-width:520px;margin:0 auto;display:flex;flex-direction:column;padding:calc(10px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom))}
@@ -260,6 +274,7 @@ dialog::backdrop{background:#1d1a1788}
 .onb-dots button[aria-current=true]{background:var(--accent);width:22px;border-radius:4px}
 .spin{width:20px;height:20px;border-radius:50%;border:2.5px solid #fff6;border-top-color:#fff;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+.avatar[hidden]{display:none}
 .avatar{flex:none;width:36px;height:36px;margin-left:10px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-family:'EB Garamond',Georgia,serif;font-size:19px}
 #install{position:fixed;z-index:1500;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top));max-width:536px;margin:0 auto;display:flex;align-items:center;gap:10px;padding:10px 6px 10px 16px;background:var(--surface);border-radius:16px;box-shadow:0 10px 30px -8px #1d1a1766;animation:rise .35s var(--ease)}
 /* abertura: a assinatura se escreve e dissolve no ranking (~1,3s, 1x por dia) */
@@ -316,9 +331,9 @@ dialog::backdrop{background:#1d1a1788}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
 <script type="module">
-import { startSession, current, done, answer, undo, finalValue, scores, community } from './ranking.mjs';
+import { startSession, current, done, answer, undo, finalValue, scores, community, migrateV1 } from './ranking.mjs';
 import { parseHours, hoursStatus, hoursWeek } from './hours.mjs';
-import { configured, currentUser, myProfile, signOut, onPasswordRecovery } from './conta.mjs';
+import { configured, currentUser, myProfile, signOut, onPasswordRecovery, searchProfiles } from './conta.mjs';
 import { startOnboarding } from './onboarding.mjs';
 
 const CATS = { RES: 'Restaurantes', CAF: 'Cafés e padarias', BAR: 'Bares' };
@@ -327,6 +342,10 @@ const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; 
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 let db = load('pinhao:v1', { ranked: [], want: [], custom: [] });   // ranked: {id,name,cat,cuisine,bairro,lat,lon,value,loved,visits:[{date,note,revisit}],date}
 const persist = () => save('pinhao:v1', db);
+// v2: notas de 1 a 10 (antes: faixas gostei/ok/não gostei) e pessoas que foram com você
+if (!db.v) { db.ranked = migrateV1(db.ranked); db.v = 2; }
+db.people ||= [];   // {id, name, userId?, username?, used}
+persist();
 // lugares vêm de places.json (cópia do OpenStreetMap publicada junto com o app; o service worker guarda para uso offline)
 let places = null;
 try { localStorage.removeItem('pinhao:places'); localStorage.removeItem('pinhao:places2'); } catch {}   // caches antigos, de quando o app baixava do Overpass
@@ -336,7 +355,7 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const norm = s => s.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
 // topo de "ok" é exatamente 6.7 e de "não gostei" 3.4, por isso o >
-const zone = n => n > 6.7 ? 'win' : n > 3.4 ? 'mid' : 'low';
+const zone = n => n >= 7 ? 'win' : n >= 4 ? 'mid' : 'low';
 const rankedIn = c => db.ranked.filter(r => r.cat === c).sort((a, b) => b.value - a.value);
 const allScores = () => Object.assign({}, ...Object.keys(CATS).map(c => scores(rankedIn(c))));
 const PT = { japanese: 'japonesa', sushi: 'sushi', pizza: 'pizza', burger: 'hambúrguer', italian: 'italiana', brazilian: 'brasileira', regional: 'regional',
@@ -346,7 +365,7 @@ const PT = { japanese: 'japonesa', sushi: 'sushi', pizza: 'pizza', burger: 'hamb
   peruvian: 'peruana', bakery: 'padaria', cake: 'doces', dessert: 'sobremesas', fish: 'peixe', international: 'internacional', buffet: 'bufê', crepe: 'crepe',
   pastel: 'pastel', acai: 'açaí', breakfast: 'café da manhã', juice: 'sucos', beer: 'cerveja', kebab: 'kebab', tapas: 'tapas', hot_dog: 'cachorro-quente' };
 const cuisines = c => (c || '').split(';').map(x => x.trim()).filter(Boolean).map(x => PT[x] || x.replace(/_/g, ' '));
-const fmtScore = n => n.toFixed(1).replace('.', ',');
+const fmtScore = n => Number.isInteger(n) ? String(n) : n.toFixed(1).replace('.', ',');   // nota sua é inteira; a da comunidade tem decimal
 const meta = p => esc([cuisines(p.cuisine).join(', '), p.bairro].filter(Boolean).join(' · ') || CATS[p.cat]);
 const allPlaces = () => [...(places || []), ...db.custom];
 // entradas antigas (antes do diário) tinham só date/note
@@ -416,7 +435,7 @@ const views = {
       return `${line}<li><button class="row${r.id === justRanked ? ' new' : ''}" data-open="${r.id}">${posBadge(i + 1, z)}${rowBody(r)}${pts(sc[r.id])}</button></li>`;
     }).join('');
     return `<div class="wrap" style="padding:0"><div class="thead cond"><span>POS</span><span>LUGAR</span><span>NOTA</span></div><ol class="table">${rows}</ol>
-      <p class="legend"><span><i class="z-win"></i>Gostei</span><span><i class="z-mid"></i>Foi ok</span><span><i class="z-low"></i>Não gostei</span></p></div>`;
+      <p class="legend"><span><i class="z-win"></i>7 a 10</span><span><i class="z-mid"></i>4 a 6</span><span><i class="z-low"></i>1 a 3</span></p></div>`;
   },
   quero() {
     const want = allPlaces().filter(p => db.want.includes(p.id) && p.cat === cat);
@@ -441,7 +460,7 @@ const views = {
     for (const r of items) {
       const d = day(r.date);
       if (d !== last) { out += `${last ? '</ol>' : ''}<h2 class="group">${d}</h2><ol class="table">`; last = d; }
-      const sub = [r.visit.revisit ? 'Voltei' : 'Primeira visita', r.visit.note && `“${esc(r.visit.note)}”`].filter(Boolean).join(' · ');
+      const sub = [r.visit.revisit ? 'Voltei' : 'Primeira visita', esc(withText(r.visit.with)), r.visit.note && `“${esc(r.visit.note)}”`].filter(Boolean).join(' · ');
       out += `<li><button class="row" data-open="${r.id}">${rowBody(r, sub)}${pts(sc[r.id])}</button></li>`;
     }
     return `<div class="wrap" style="padding:0 0 28px">${out}</ol></div>`;
@@ -542,6 +561,7 @@ function sheet(html, handler) {
   dlg.innerHTML = `<div class="sheet"><button class="iconbtn x" data-close aria-label="Fechar">${icon('x')}</button>${html}</div>`;
   if (!dlg.open) dlg.showModal();
   dlg.onclick = e => { if (e.target === dlg || e.target.closest('[data-close]')) return dlg.close(); handler(e); };
+  dlg.oninput = null;
 }
 dlg.addEventListener('close', render);
 const phead = p => `<div class="phead"><div><h2>${esc(p.name)}</h2><p class="sub">${meta(p)}</p></div></div>`;
@@ -596,7 +616,7 @@ function placeSheet(p) {
     const mine = rankedIn(r.cat), sc = scores(mine)[r.id], vs = [...visits(r)].sort((a, b) => b.date - a.date);
     body = `<p class="sub" style="margin-top:14px">${mine.findIndex(x => x.id === r.id) + 1}º de ${mine.length} no seu ranking de ${CATS[r.cat].toLowerCase()}</p>
       ${communityBox(r, sc)}${infoList(p)}
-      <div class="box"><h3>Suas visitas · ${vs.length}</h3><ol class="visits">${vs.map(v => `<li><time>${fmtDay(v.date)}</time>${v.revisit ? '<span class="tag">voltei</span>' : ''}<span>${esc(v.note) || '<span style="color:var(--ink-2)">sem anotação</span>'}</span></li>`).join('')}</ol></div>
+      <div class="box"><h3>Suas visitas · ${vs.length}</h3><ol class="visits">${vs.map(v => `<li><time>${fmtDay(v.date)}</time>${v.revisit ? '<span class="tag">voltei</span>' : ''}<span>${[withText(v.with), esc(v.note)].filter(Boolean).join(' · ') || '<span style="color:var(--ink-2)">sem anotação</span>'}</span></li>`).join('')}</ol></div>
       <div class="actions"><button class="btn quiet danger" data-a="remove">Tirar do ranking</button></div>`;
   } else body = `${communityBox(p, null)}${infoList(p)}`;
   sheet(`<div class="ph"><div class="t">${placeHead(p)}</div><button class="iconbtn" data-a="share" aria-label="Compartilhar" style="margin-right:34px">${icon('share')}</button></div>${actionCells(p)}${body}`, e => {
@@ -628,36 +648,80 @@ const similarity = (a, b) => {
 
 function rankFlow(place) {
   const others = rankedIn(place.cat).filter(r => r.id !== place.id);
-  const again = db.ranked.some(r => r.id === place.id);
-  sheet(`${phead(place)}${again ? '<p class="sub" style="margin-top:14px">Como foi desta vez?</p>' : ''}<div class="how">
-    <button data-like="1" class="z-win"><i></i>Gostei<span>6,8 a 10</span></button>
-    <button data-like="0" class="z-mid"><i></i>Foi ok<span>3,5 a 6,7</span></button>
-    <button data-like="-1" class="z-low"><i></i>Não gostei<span>0 a 3,4</span></button></div>`, e => {
-    const like = e.target.closest('[data-like]')?.dataset.like; if (like == null) return;
-    const s = startSession(others.map(r => ({ ...r, similarity: similarity(place, r) })), +like);
+  const prev = db.ranked.find(r => r.id === place.id);
+  sheet(`${phead(place)}<p class="sub" style="margin-top:16px">${prev ? 'Que nota você dá desta vez?' : 'Que nota você dá?'}</p>
+    <div class="notas">${Array.from({ length: 10 }, (_, i) => i + 1).map(n => `<button class="cond z-${zone(n)}" data-nota="${n}" aria-pressed="${prev ? Math.floor(prev.value) === n : false}">${n}</button>`).join('')}</div>
+    <div class="notas-x"><span>Não gostei</span><span>Amei</span></div>`, e => {
+    const n = +e.target.closest('[data-nota]')?.dataset.nota; if (!n) return;
+    const s = startSession(others.map(r => ({ ...r, similarity: similarity(place, r) })), n);
     s.max = Math.max(1, Math.ceil(Math.log2(s.sublist.length + 1)));
     compare(place, s, true);
   });
 }
 
+// só aparece quando a nota empata com outro lugar seu
 function compare(place, s, enter) {
   if (done(s)) return finish(place, s);
   const c = current(s);
-  sheet(`<h2>Qual você prefere?</h2><p class="sub">Confronto ${Math.min(s.history.length + 1, s.max)} de até ${s.max}</p><div class="duel">
+  sheet(`<h2>Empate no ${s.nota}</h2><p class="sub">Qual você prefere? · ${Math.min(s.history.length + 1, s.max)} de até ${s.max}</p><div class="duel">
     <button class="side" data-a="better"><b>${esc(place.name)}</b><small>${meta(place)}</small></button><span class="vs cond">×</span>
     <button class="side${enter ? ' in' : ''}" data-a="worse"><b>${esc(c.name)}</b><small>${meta(c)}</small></button></div>
     <div class="bar"><button class="btn quiet" data-a="undo" ${s.history.length ? '' : 'disabled'}>${icon('undo')}Desfazer</button>
-    <button class="btn quiet" data-a="skip">Pular</button><button class="btn quiet" data-a="tough">Difícil demais</button></div>`, e => {
+    <button class="btn quiet" data-a="skip">Pular</button><button class="btn quiet" data-a="tough">Tanto faz</button></div>`, e => {
     const a = e.target.closest('[data-a]')?.dataset.a; if (!a) return;
     if (a === 'undo') undo(s); else if (a === 'tough') s.sublist = []; else answer(s, a);
     compare(place, s, a !== 'undo');
   });
 }
 
+// --- pessoas: amigos com conta na Lia ou "personagens" criados por você (ficam neste celular por enquanto) ---
+const PCOLORS = ['#1F3A93', '#C8553D', '#2F7A4F', '#B07A1E', '#6B4E9B', '#2E6F7E'];
+const hashStr = t => [...t].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+const person = id => db.people.find(p => p.id === id);
+const avatar = p => `<i class="pp${p.userId ? ' lia' : ''}" style="background:${PCOLORS[hashStr(p.name) % PCOLORS.length]}">${esc(p.name.trim()[0]?.toUpperCase() || '?')}</i>`;
+const withText = ids => { const names = (ids || []).map(person).filter(Boolean).map(p => p.name.split(' ')[0]);
+  return names.length ? 'com ' + (names.length > 1 ? names.slice(0, -1).join(', ') + ' e ' + names.at(-1) : names[0]) : ''; };
+function whoPicker(sel) {
+  const ppl = [...db.people].sort((a, b) => (b.used || 0) - (a.used || 0));
+  return `<div class="people">${ppl.map(p => `<button class="chip-p" data-person="${p.id}" aria-pressed="${sel.includes(p.id)}">${avatar(p)}${esc(p.name.split(' ')[0])}${p.userId ? '<small>Lia</small>' : ''}</button>`).join('')}
+    <button class="chip-p add" data-person-add>${icon('plus')}Pessoa</button></div>
+    <div class="padd" hidden><input class="input" id="pq" placeholder="Nome ou @usuário de quem tem Lia" autocomplete="off"><div id="psug"></div></div>`;
+}
+function addPerson(visit, p) {
+  const ex = db.people.find(x => (p.userId && x.userId === p.userId) || (!p.userId && !x.userId && x.name.toLowerCase() === p.name.toLowerCase()));
+  const it = ex || { id: 'p' + Date.now().toString(36), ...p };
+  if (!ex) db.people.push(it);
+  if (!visit.with.includes(it.id)) visit.with.push(it.id);
+  it.used = Date.now(); persist();
+  $('#who').innerHTML = whoPicker(visit.with);
+}
+function whoClick(e, visit) {
+  const b = e.target.closest('[data-person],[data-person-add],[data-lia],[data-newp]'); if (!b) return false;
+  if (b.dataset.person) { const id = b.dataset.person; visit.with = visit.with.includes(id) ? visit.with.filter(x => x !== id) : [...visit.with, id]; b.setAttribute('aria-pressed', visit.with.includes(id)); persist(); }
+  else if (b.hasAttribute('data-person-add')) { const box = dlg.querySelector('.padd'); box.hidden = false; box.querySelector('input').focus(); }
+  else if (b.dataset.lia) { const u = JSON.parse(b.dataset.lia); addPerson(visit, { name: [u.first_name, u.last_name].filter(Boolean).join(' '), userId: u.id, username: u.username }); }
+  else if (b.dataset.newp) addPerson(visit, { name: b.dataset.newp });
+  return true;
+}
+let whoTimer;
+function whoInput(e, visit) {
+  if (e.target.id !== 'pq') return;
+  const q = e.target.value.trim(), box = dlg.querySelector('#psug');
+  const make = q && !q.startsWith('@') ? `<button class="sug" data-newp="${esc(q)}">${avatar({ name: q })}<span>Criar personagem “${esc(q)}”</span></button>` : '';
+  box.innerHTML = make;
+  clearTimeout(whoTimer);
+  if (q.replace('@', '').length < 2 || !configured) return;
+  whoTimer = setTimeout(async () => {   // procura quem tem conta na Lia pelo @ ou pelo nome
+    const found = await searchProfiles(q).catch(() => []);
+    if (e.target.value.trim() !== q) return;
+    box.innerHTML = found.map(u => `<button class="sug" data-lia="${esc(JSON.stringify(u))}">${avatar({ name: u.first_name, userId: u.id })}<span>${esc([u.first_name, u.last_name].join(' '))}<small>@${esc(u.username)} · tem Lia</small></span></button>`).join('') + make;
+  }, 300);
+}
+
 function finish(place, s) {
   const prev = db.ranked.find(r => r.id === place.id);
   db.ranked = db.ranked.filter(r => r.id !== place.id);
-  const visit = { date: Date.now(), note: '', revisit: !!prev };
+  const visit = { date: Date.now(), note: '', revisit: !!prev, with: [] };
   const entry = { id: place.id, name: place.name, cat: place.cat, cuisine: place.cuisine, bairro: place.bairro, lat: place.lat, lon: place.lon,
     value: finalValue(s), loved: !!prev?.loved, visits: [...(prev ? visits(prev) : []), visit], date: visit.date };
   db.ranked.push(entry); db.want = db.want.filter(id => id !== place.id); persist();
@@ -666,13 +730,16 @@ function finish(place, s) {
   sheet(`<div class="result"><h2>${esc(place.name)}</h2>${pts(sc)}
     <p>${mine.findIndex(x => x.id === place.id) + 1}º de ${mine.length} em ${CATS[place.cat].toLowerCase()}</p></div>
     <button class="btn secondary wide heart" data-love aria-pressed="${entry.loved}">${icon('heart', entry.loved)}Amei, voltaria sempre</button>
-    <label class="lbl" for="note">Anotação desta visita</label><textarea id="note" rows="2" placeholder="O que você pediu, com quem foi"></textarea>
+    <span class="lbl">Quem foi com você?</span><div id="who">${whoPicker(visit.with)}</div>
+    <label class="lbl" for="note">Anotação desta visita</label><textarea id="note" rows="2" placeholder="O que você pediu"></textarea>
     <button class="btn primary wide" data-ok>Ver no ranking</button>`, e => {
     const lv = e.target.closest('[data-love]');
     if (lv) { entry.loved = !entry.loved; persist(); lv.setAttribute('aria-pressed', entry.loved); lv.innerHTML = icon('heart', entry.loved) + 'Amei, voltaria sempre'; return; }
+    if (whoClick(e, visit)) return;
     if (!e.target.closest('[data-ok]')) return;
     visit.note = dlg.querySelector('#note').value.trim(); persist(); justRanked = place.id; dlg.close();
   });
+  dlg.oninput = e => whoInput(e, visit);
 }
 
 function addPlace() {

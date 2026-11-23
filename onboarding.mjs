@@ -15,7 +15,7 @@ const icon = n => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICON[
 
 const SLIDES = [
   { big: '<span class="onb-sig">Lia</span>', title: 'Seu ranking de Curitiba', text: 'Restaurantes, cafés e bares em ordem, do seu favorito para baixo.' },
-  { big: '<span class="onb-num">8,7</span>', title: 'Você dá a nota', text: 'De 1 a 10, e a Lia desempata comparando com os lugares que você já conhece.' },
+  { big: '<span class="onb-num">9</span>', title: 'Você dá a nota', text: 'De 1 a 10, e a Lia desempata comparando com os lugares que você já conhece.' },
   { big: '<span class="onb-num">2 amigos</span>', title: 'Com quem você foi', text: 'Guarde cada visita, com quem estava e o que pediu.' },
 ];
 

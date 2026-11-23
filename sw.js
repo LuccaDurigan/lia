@@ -1,7 +1,7 @@
 // Service worker da Lia.
 // Arquivos do próprio app: rede primeiro (sem cache HTTP), então toda versão publicada chega na próxima abertura,
 // sem reinstalar. Sem internet, usa a última cópia guardada. Bibliotecas (mapa, Supabase; URL com versão fixa): cache primeiro.
-const CACHE = 'lia-v3';
+const CACHE = 'lia-v4';
 const SHELL = ['./', 'index.html', 'ranking.mjs', 'hours.mjs', 'conta.mjs', 'onboarding.mjs', 'places.json', 'manifest.webmanifest', 'fonts/eb-garamond.woff2', 'fonts/eb-garamond-italic.woff2', 'fonts/jost.woff2', 'fonts/caveat.woff2', 'icons/icon-192.png'];
 const CDN = ['https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css'];
 
