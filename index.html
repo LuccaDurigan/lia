@@ -235,10 +235,12 @@ dialog::backdrop{background:#1d1a1788}
 .shot-x{position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:#1d1a17b3;color:#fff;display:grid;place-items:center}
 .shot-x svg{width:14px;height:14px}
 .spin.dark{border-color:var(--line-2);border-top-color:var(--accent)}
-.gallery{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:92px;gap:4px;margin-top:16px;border-radius:14px;overflow:hidden;position:relative}
-.gallery .g{background:var(--track);padding:0}.gallery .g.big{grid-column:span 2;grid-row:span 2}
+.gallery{display:grid;gap:4px;height:200px;margin-top:16px;border-radius:14px;overflow:hidden}
+.gallery.n2{grid-template-columns:1fr 1fr}
+.gallery.n3{grid-template-columns:2fr 1fr;grid-template-rows:1fr 1fr}.gallery.n3 .g:first-child{grid-row:span 2}
+.gallery .g{position:relative;background:var(--track);padding:0;min-height:0}
 .gallery img{width:100%;height:100%;object-fit:cover;display:block}
-.gmore{position:absolute;right:8px;bottom:8px;background:#1d1a17b3;color:#fff;font-size:13px;font-weight:700;border-radius:999px;padding:3px 9px}
+.gmore{position:absolute;inset:0;display:grid;place-items:center;background:#1d1a1799;color:#fff;font-size:22px;font-weight:600}
 .rthumb{flex:none;width:44px;height:44px;border-radius:8px;object-fit:cover;background:var(--track)}
 #viewer{width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;padding:0;border:0;background:#0d0c0b;color:#fff;border-radius:0}
 #viewer::backdrop{background:#000}
@@ -778,8 +780,9 @@ async function addPhotos(input, visit) {
 function galleryHTML(r) {
   const all = visits(r).flatMap(v => v.photos || []).reverse();   // mais recentes primeiro
   if (!all.length) return '';
-  return `<div class="gallery">${all.slice(0, 6).map((p, i) => `<button data-a="view" data-view="${i}" class="g${i === 0 ? ' big' : ''}" aria-label="Abrir foto ${i + 1}"><img data-path="${esc(p)}" alt=""></button>`).join('')}
-    ${all.length > 6 ? `<span class="gmore">+${all.length - 6}</span>` : ''}</div>`;
+  // no máximo 3 quadros, com arranjo próprio para 1, 2 e 3; o resto vira "+N" no último e abre na tela cheia
+  const shown = all.slice(0, 3), extra = all.length - shown.length;
+  return `<div class="gallery n${shown.length}">${shown.map((p, i) => `<button data-a="view" data-view="${i}" class="g" aria-label="Abrir foto ${i + 1} de ${all.length}"><img data-path="${esc(p)}" alt="">${extra && i === shown.length - 1 ? `<span class="gmore">+${extra}</span>` : ''}</button>`).join('')}</div>`;
 }
 // tela cheia: toque nas laterais (ou arraste) para passar, X para fechar
 const viewer = $('#viewer');
@@ -930,7 +933,7 @@ $('#me').addEventListener('click', () => sheet(`<h2>${esc([profile?.first_name, 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // A página sabe a própria versão (BUILD é carimbado pelo publicar.sh) e compara com a publicada (version.json).
 // Se estiver atrás, recarrega: ao abrir, ao voltar para a tela e a cada 30 min, desde que nenhuma ficha esteja aberta.
-const BUILD = '20261122223655';
+const BUILD = '20261122224526';
 const publishedVersion = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j?.v ?? null).catch(() => null);
 async function checkUpdate() {
   const v = await publishedVersion();
