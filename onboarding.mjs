@@ -75,7 +75,7 @@ export function startOnboarding({ onDone, mode = 'welcome' }) {
         `<div class="onb-user"><span>@</span>${field('f-user', st.username, 'autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="usuario"')}
           <i class="onb-ok ${st.userState === 'ok' ? 'on' : ''}">${icon('check')}</i></div>
          <p class="onb-hint ${['taken', 'bad', 'offline'].includes(st.userState) ? 'bad' : ''}">${msg || 'Dá para mudar depois.'}</p>`,
-        cta('Criar conta', st.userState === 'ok'));
+        cta('Criar conta', st.userState === 'ok') + '<p class="onb-legal">Ao criar a conta, você concorda com os <a href="termos.html" target="_blank">Termos de uso</a> e a <a href="privacidade.html" target="_blank">Política de privacidade</a>.</p>');
     },
     confirm: () => screen('Confirme seu e-mail', `Mandamos um link para <b>${esc(st.email)}</b>. Abra o link e depois volte aqui para entrar.`, '', `<button class="btn primary wide" data-act="to-login">Já confirmei, entrar</button>`, { backBtn: false }),
     done: () => `<div class="onb-screen onb-welcome"><div class="onb-hero"><span class="onb-sig">Lia</span></div>

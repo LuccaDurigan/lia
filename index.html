@@ -226,6 +226,13 @@ dialog::backdrop{background:#1d1a1788}
 .visits li:first-child{border-top:0}
 .visits time{flex:none;width:72px;color:var(--ink-2)}
 .tag{flex:none;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-tint);border-radius:6px;padding:1px 6px;align-self:flex-start}
+/* LGPD no perfil */
+.legal{display:grid;gap:2px}
+.legal button,.legal a{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line);font-size:15px;color:var(--ink);text-decoration:none;text-align:left}
+.legal>:first-child{border-top:0}
+.legal svg{width:18px;height:18px;color:var(--ink-2)}
+.legal a{color:var(--accent);font-size:14px}
+.btn.danger-fill{background:var(--heart)}.btn.danger-fill:disabled{opacity:.45}
 /* sincronização */
 .syncline{margin-top:10px;font-size:13px;color:var(--win)}.syncline::before{content:'● ';font-size:10px}
 .syncline[data-s=saving]{color:var(--ink-2)}.syncline[data-s=offline]{color:var(--mid)}
@@ -351,6 +358,7 @@ dialog::backdrop{background:#1d1a1788}
 .onb-err{color:var(--heart);font-size:15px;margin-top:16px}
 .onb-foot{margin-top:auto;padding-top:28px;display:grid;gap:6px}
 .onb-cta:disabled{background:var(--line-2);color:#fff;opacity:1}
+.onb-legal{font-size:13px;color:var(--ink-2);text-align:center;margin:4px 0 0}.onb-legal a{color:var(--accent)}
 .onb-forgot{justify-self:start;padding:0;margin-top:10px;min-height:36px}
 .onb-welcome{text-align:center;justify-content:center}
 .onb-welcome .onb-foot{margin-top:40px}
@@ -422,7 +430,7 @@ dialog::backdrop{background:#1d1a1788}
 <script type="module">
 import { startSession, current, done, answer, undo, finalValue, scores, community, migrateV1 } from './ranking.mjs';
 import { parseHours, hoursStatus, hoursWeek } from './hours.mjs';
-import { configured, currentUser, myProfile, signOut, onPasswordRecovery, searchProfiles, uploadPhoto, photoUrls, deletePhotos, errorText, sendReport, loadUserData, saveUserData } from './conta.mjs';
+import { configured, currentUser, myProfile, signOut, onPasswordRecovery, searchProfiles, uploadPhoto, photoUrls, deletePhotos, errorText, sendReport, loadUserData, saveUserData, deleteAccount } from './conta.mjs';
 import { mergeData } from './sync.mjs';
 import { startOnboarding } from './onboarding.mjs';
 
@@ -991,15 +999,58 @@ function profileSheet() {
       ${db.ranked.length ? '<button class="btn quiet" data-a="editfavs" style="padding:0;margin-top:6px">Escolher favoritos</button>' : ''}</div>
     <div class="box"><h3>Suas notas</h3><div class="nhist">${hist.map((n, i) => `<div><i class="z-${zone(i + 1)}" style="height:${(n / max) * 100}%"></i><span>${i + 1}</span></div>`).join('')}</div></div>
     <div class="box"><h3>Listas · ${db.lists.length}</h3>${db.lists.length ? `<ol class="simil">${db.lists.map(l => `<li><button data-a="openlist" data-id="${l.id}"><span class="t"><b>${esc(l.name)}</b><small>${l.items.length} lugar${l.items.length === 1 ? '' : 'es'}</small></span></button></li>`).join('')}</ol>` : '<p class="sub">Abra um lugar e toque em "Adicionar a uma lista" para criar a primeira.</p>'}</div>
-    <div class="actions"><button class="btn quiet" data-a="logout">Sair da conta</button></div>`, async e => {
+    <div class="box legal"><button data-a="contact">${icon('chat')}Fale com a Lia</button><button data-a="export">${icon('share')}Baixar meus dados</button>
+      <a href="privacidade.html">Política de privacidade</a><a href="termos.html">Termos de uso</a></div>
+    <div class="actions"><button class="btn quiet" data-a="logout">Sair da conta</button><button class="btn quiet danger" data-a="delacc">Excluir minha conta</button></div>`, async e => {
     const b = e.target.closest('[data-a]'); if (!b) return;
     const a = b.dataset.a;
     if (a === 'openfav') placeSheet(byId(b.dataset.id));
     else if (a === 'editfavs') favPicker();
     else if (a === 'openlist') listSheet(b.dataset.id);
+    else if (a === 'contact') contactSheet();
+    else if (a === 'export') exportData();
+    else if (a === 'delacc') deleteAccountSheet();
     else if (a === 'logout') { b.disabled = true; await stopSync(); await signOut().catch(() => {}); dlg.close(); $('#me').hidden = true; profile = null; startOnboarding({ onDone: showAccount }); }
   });
 }
+// --- LGPD: falar com a Lia, baixar os dados, excluir a conta ---
+function contactSheet() {
+  sheet(`<h2>Fale com a Lia</h2><p class="sub">Dúvidas, sugestões, pedidos sobre seus dados ou reclamações. Respondemos pelo seu e-mail da conta.</p>
+    <label class="lbl" for="cmsg">Mensagem</label><textarea id="cmsg" rows="5" maxlength="500" placeholder="Escreva aqui"></textarea>
+    <button class="btn primary wide" data-a="send">Enviar</button>`, async e => {
+    const b = e.target.closest('[data-a="send"]'); if (!b) return;
+    const msg = dlg.querySelector('#cmsg').value.trim(); if (!msg) return dlg.querySelector('#cmsg').focus();
+    b.disabled = true; b.innerHTML = '<span class="spin" aria-label="Enviando"></span>';
+    try { await sendReport({ place_id: 'contato', place_name: 'Fale com a Lia', kind: 'Mensagem', note: msg }); dlg.close(); toast('Mensagem enviada'); }
+    catch (err) { b.disabled = false; b.textContent = 'Enviar'; alertMsg(errorText(err)); }
+  });
+}
+function exportData() {   // portabilidade: tudo o que a Lia guarda de você, num arquivo
+  const out = { exportado_em: new Date().toISOString(), perfil: profile, dados: db };
+  const file = new File([JSON.stringify(out, null, 2)], `lia-meus-dados-${dayValue(Date.now())}.json`, { type: 'application/json' });
+  if (navigator.canShare?.({ files: [file] })) navigator.share({ files: [file], title: 'Meus dados da Lia' }).catch(() => {});
+  else { const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }
+}
+function deleteAccountSheet() {
+  sheet(`<h2>Excluir minha conta</h2>
+    <p class="sub" style="margin-top:8px">Isso apaga <b>de vez</b> a sua conta, o seu ranking, as visitas, as fotos, as listas, os favoritos e as idas marcadas. Não dá para desfazer.</p>
+    <p class="sub" style="margin-top:8px">Se quiser guardar uma cópia antes, use "Baixar meus dados".</p>
+    <label class="lbl" for="delc">Para confirmar, escreva <b>EXCLUIR</b></label><input class="input" id="delc" autocomplete="off" autocapitalize="characters">
+    <button class="btn primary wide danger-fill" data-a="del" disabled>Excluir minha conta</button>`, async e => {
+    const b = e.target.closest('[data-a="del"]'); if (!b || b.disabled) return;
+    b.disabled = true; b.innerHTML = '<span class="spin" aria-label="Excluindo"></span>';
+    try {
+      clearTimeout(pushTimer); syncUser = null;
+      await deleteAccount();
+      db = freshDb(); save('pinhao:v1', db); syncMeta = { userId: null, syncedAt: null, dirty: false }; saveMeta();
+      try { localStorage.removeItem('lia:install-dismissed'); } catch {}
+      dlg.close(); $('#me').hidden = true; profile = null; render(); toast('Conta excluída');
+      startOnboarding({ onDone: showAccount });
+    } catch (err) { b.disabled = false; b.textContent = 'Excluir minha conta'; alertMsg(errorText(err)); }
+  });
+  dlg.oninput = e => { if (e.target.id === 'delc') dlg.querySelector('[data-a="del"]').disabled = e.target.value.trim().toUpperCase() !== 'EXCLUIR'; };
+}
+
 function favPicker() {
   const sc = allScores(), list = [...db.ranked].sort((a, b) => b.value - a.value);
   const draw = () => sheet(`<h2>Seus 4 favoritos</h2><p class="sub">${db.favs.length} de 4 escolhidos</p>
@@ -1377,7 +1428,7 @@ $('#me').addEventListener('click', profileSheet);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // A página sabe a própria versão (BUILD é carimbado pelo publicar.sh) e compara com a publicada (version.json).
 // Se estiver atrás, recarrega: ao abrir, ao voltar para a tela e a cada 30 min, desde que nenhuma ficha esteja aberta.
-const BUILD = '20261123000202';
+const BUILD = '20261123001404';
 const publishedVersion = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j?.v ?? null).catch(() => null);
 async function checkUpdate() {
   const v = await publishedVersion();

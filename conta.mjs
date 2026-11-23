@@ -175,3 +175,20 @@ export async function saveUserData(doc) {
   if (error) throw error;
   return data.updated_at;
 }
+
+// --- LGPD: excluir a conta de vez ---
+// 1) apaga todas as fotos da pasta da pessoa no Storage; 2) a função do banco apaga a conta, e o resto sai em cascata.
+export async function deleteAccount() {
+  const s = await client(), user = await currentUser();
+  if (!user) throw new Error('sem-conta');
+  for (;;) {   // lista em lotes de 1000 até esvaziar a pasta
+    const { data, error } = await s.storage.from('photos').list(user.id, { limit: 1000 });
+    if (error) throw error;
+    if (!data?.length) break;
+    const { error: e2 } = await s.storage.from('photos').remove(data.map(f => `${user.id}/${f.name}`));
+    if (e2) throw e2;
+  }
+  const { error } = await s.rpc('delete_my_account');
+  if (error) throw error;
+  await s.auth.signOut().catch(() => {});   // a sessão já não vale; limpa o que sobrou no aparelho
+}

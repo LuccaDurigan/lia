@@ -1,0 +1,12 @@
+/* páginas de Termos e Privacidade, no papel kraft da Lia */
+@font-face{font-family:'EB Garamond';src:url(fonts/eb-garamond.woff2) format('woff2');font-weight:400 800;font-display:swap}
+@font-face{font-family:Jost;src:url(fonts/jost.woff2) format('woff2');font-weight:300 700;font-display:swap}
+:root{color-scheme:light}
+body{margin:0;background:#F6EEDF;color:#2E2A24;font:16px/1.6 Jost,system-ui,sans-serif}
+main{max-width:680px;margin:0 auto;padding:24px 20px 64px}
+h1{font-family:'EB Garamond',Georgia,serif;font-weight:500;font-size:36px;line-height:1.1;margin:18px 0 4px}
+h2{font-family:'EB Garamond',Georgia,serif;font-weight:500;font-size:23px;margin:30px 0 6px}
+.meta{color:#6F665A;font-size:14px;margin:0 0 20px}
+ul{padding-left:20px}li{margin:6px 0}
+a{color:#1F3A93}
+.back{text-decoration:none;font-weight:600;font-size:15px}
